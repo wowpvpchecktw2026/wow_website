@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>PvP Activities Table — Demo</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500&display=swap">
+    <style>
+        * { box-sizing: border-box; }
+        body { margin: 0; background: #101010; color: #fff; font-family: Poppins, "Microsoft JhengHei", sans-serif; }
+        main { max-width: 1320px; margin: 48px auto; padding: 0 20px; }
+        .table-scroll { overflow-x: auto; scrollbar-color: #6769f750 transparent; }
+        table { width: 100%; min-width: 920px; border-collapse: separate; border-spacing: 0; table-layout: fixed; font-size: 14px; }
+        caption { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+        th { height: 46px; padding: 8px; line-height: 30px; background: #191919; color: #a7aeb6; font-weight: 500; border-top: 1px solid #272727; border-bottom: 1px solid #272727; white-space: nowrap; }
+        th:first-child { border-left: 1px solid #272727; border-radius: 5px 0 0 5px; }
+        th:last-child { border-right: 1px solid #272727; border-radius: 0 5px 5px 0; }
+        th:first-child { text-align: left; padding-left: 12px; }
+        td { height: 60px; padding: 0 12px; border-bottom: 1px solid #2e2e31; text-align: center; vertical-align: middle; font-weight: 400; }
+        tbody tr:first-child td { border-top: 3px solid transparent; }
+        tbody tr:hover { background: #ffffff04; }
+        .pair { display: flex; align-items: center; justify-content: center; gap: 10px; }
+        .pair > :first-child { width: 50%; text-align: right; }
+        .pair > :last-child { width: 50%; text-align: left; }
+        .mono { font-family: Consolas, "Courier New", monospace; }
+        .up { color: #488d48; }
+        .down { color: #d25252; }
+        .flat { color: #eebf00; }
+        .trend { white-space: nowrap; font-size: 14px; }
+        .arrow { display: inline-block; width: 24px; font-size: 21px; line-height: 1; vertical-align: -1px; }
+        .character { display: flex; align-items: center; text-align: left; }
+        .icons { display: flex; align-items: center; gap: 4px; min-width: 100px; }
+        .icons img { width: 30px; height: 30px; object-fit: cover; background: #222; font-size: 8px; }
+        .icons img:last-child { width: 29px; }
+        .name { padding-left: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .summary { display: flex; justify-content: center; align-items: center; gap: 10px; }
+        .summary .up, .summary .down { font-size: 19px; min-width: 28px; }
+        .summary .up { text-align: right; }
+        .summary .down { text-align: left; }
+        .updated { white-space: nowrap; }
+        @media (max-width: 1024px) { main { margin: 24px auto; padding: 0 12px; } td { height: 40px; } }
+        @media (prefers-reduced-motion: no-preference) { tbody tr { transition: background-color .15s; } }
+        .input-panel { margin-bottom: 24px; }
+        .input-panel label { display: block; color: #a7aeb6; font-weight: 500; }
+        .input-panel p { margin: 8px 0; color: #a7aeb6; font-size: 13px; }
+        .input-panel textarea { display: block; width: 100%; min-height: 180px; resize: vertical; padding: 12px; border: 1px solid #272727; border-radius: 5px; background: #191919; color: #fff; font: 14px/1.7 Consolas, "Microsoft JhengHei", monospace; }
+        .input-panel textarea:focus { outline: 2px solid #128afb; outline-offset: 2px; }
+        .character .name { padding-left: 0; }
+    </style>
+</head>
+<body>
+    <main>
+        <section class="input-panel" aria-label="輸入角色資料">
+            <label for="activity-input">貼上角色資料</label>
+            <p id="input-help">每行一筆，輸入後會即時更新下方表格。職業顏色為隨機示意；更新時間固定顯示 6 hours。</p>
+            <textarea id="activity-input" rows="10" spellcheck="false" aria-describedby="input-help input-status">【1850】 依卡諾斯買龍-hellscream  (+58 , 6:6)
+【768 】 Smilecc-chillwind-point  (+768 , 8:4)
+【768 】 粵龍-silverwing-hold  (+384 , 4:2)
+【2105】 這把我贏-krol-blade  (+113 , 18:12)
+【2062】 啾巴比母捏牛-silverwing-hold  (+94 , 6:0)
+【2009】 地獄神父紅蓮-queldorei  (+56 , 4:2)
+【1977】 Shaotang-sundown-marsh  (+146 , 9:3)
+【1950】 瘦大奶腿玩年-whisperwind  (+1 , 14:19)
+【1940】 專搞正常玩家-world-tree  (+32 , 2:4)
+【1933】 可莉餅-world-tree  (+142 , 8:4)
+【1925】 石化根-arygos  (+129 , 8:4)
+【1841】 不開咪都人妖-chillwind-point  (-79 , 1:8)
+【1829】 劍魔九千勝-queldorei  (-4 , 6:6)
+【1811】 Kalvishblind-world-tree  (+40 , 8:7)
+【1724】 黎妃爾-world-tree  (+860 , 9:3)
+【1709】 黎妃爾-world-tree  (+462 , 5:7)
+【1247】 霜火峰有兩賊-shadowmoon  (+1247 , 13:17)
+【1152】 石化根-arygos  (+1152 , 12:18)
+【672 】 在刀尖上跳舞-world-tree  (+384 , 4:2)
+【1923】 懼滷-wrathbringer  (+72 , 20:13)</textarea>
+            <p id="input-status" role="status" aria-live="polite"></p>
+        </section>
+        <div class="table-scroll" role="region" aria-label="PvP activities table" tabindex="0">
+            <table>
+                <caption>輸入的 PvP 角色資料</caption>
+                <colgroup><col style="width: 45%"><col style="width: 20%"><col style="width: 18%"><col style="width: 17%"></colgroup>
+                <thead><tr><th scope="col">Character</th><th scope="col">Current rating</th><th scope="col">Recent summary</th><th scope="col">Last updated</th></tr></thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </main>
+    <script>
+        const input = document.getElementById('activity-input');
+        const tableBody = document.querySelector('tbody');
+        const status = document.getElementById('input-status');
+        const classColors = ['#fff569', '#69ccf0', '#f58cba', '#0070de', '#ff7d0a', '#ffffff', '#00ff96', '#a330c9', '#c41f3b', '#abd473', '#9482c9', '#c79c6e', '#33937f'];
+        const characterColors = new Map();
+
+        function parseActivities(text) {
+            const rows = [];
+            const invalidLines = [];
+            text.split(/\r?\n/).forEach((line, index) => {
+                if (!line.trim()) return;
+                const match = line.match(/^\s*【\s*(\d+)\s*】\s*(.+?)\s*\(\s*([+-]?\d+)\s*,\s*(\d+)\s*:\s*(\d+)\s*\)\s*$/);
+                if (!match) {
+                    invalidLines.push(index + 1);
+                    return;
+                }
+                rows.push({ rating: match[1], character: match[2].trim(), change: Number(match[3]), wins: match[4], losses: match[5] });
+            });
+            return { rows, invalidLines };
+        }
+
+        function formatCharacter(character) {
+            const separator = character.indexOf('-');
+            if (separator === -1) return character;
+            const name = character.slice(0, separator);
+            const realm = character.slice(separator + 1).split('-')
+                .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                .join(' ');
+            return name + '-' + realm;
+        }
+
+        function element(tag, className, text) {
+            const node = document.createElement(tag);
+            node.className = className;
+            if (text !== undefined) node.textContent = text;
+            return node;
+        }
+
+        function renderActivities() {
+            const { rows, invalidLines } = parseActivities(input.value);
+            const fragment = document.createDocumentFragment();
+            rows.forEach(row => {
+                const tr = document.createElement('tr');
+                const characterCell = document.createElement('td');
+                const character = element('div', 'character');
+                const name = element('span', 'name', formatCharacter(row.character));
+                if (!characterColors.has(row.character)) {
+                    characterColors.set(row.character, classColors[Math.floor(Math.random() * classColors.length)]);
+                }
+                name.style.color = characterColors.get(row.character);
+                name.title = name.textContent;
+                character.append(name);
+                characterCell.append(character);
+
+                const ratingCell = document.createElement('td');
+                const rating = element('div', 'pair');
+                const changeClass = row.change > 0 ? 'up' : row.change < 0 ? 'down' : 'flat';
+                const changeText = row.change > 0 ? '+' + row.change : String(row.change);
+                rating.append(element('span', 'mono', row.rating), element('span', 'trend ' + changeClass, changeText));
+                ratingCell.append(rating);
+
+                const summaryCell = document.createElement('td');
+                const summary = element('div', 'summary');
+                const wins = element('span', 'up', row.wins);
+                const losses = element('span', 'down', row.losses);
+                wins.setAttribute('aria-label', '勝場 ' + row.wins);
+                losses.setAttribute('aria-label', '敗場 ' + row.losses);
+                summary.append(wins, element('span', '', '-'), losses);
+                summaryCell.append(summary);
+
+                const updated = element('td', 'updated', '6 hours');
+                tr.append(characterCell, ratingCell, summaryCell, updated);
+                fragment.append(tr);
+            });
+            tableBody.replaceChildren(fragment);
+            status.textContent = '已顯示 ' + rows.length + ' 筆資料' + (invalidLines.length ? '；第 ' + invalidLines.join('、') + ' 行格式不符，請檢查。' : '。');
+        }
+
+        input.addEventListener('input', renderActivities);
+        renderActivities();
+    </script>
+</body>
+</html>
