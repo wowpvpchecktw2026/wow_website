@@ -53,7 +53,7 @@
         <h1>Check pvp 截圖產生器</h1>
         <section class="input-panel" aria-label="輸入角色資料">
             <label for="activity-input">貼上角色資料</label>
-            <p id="input-help">每行一筆，輸入後會即時更新下方表格。職業顏色為隨機示意；更新時間固定顯示 6 hours。</p>
+            <p id="input-help">每行一筆，輸入後會即時更新下方表格。職業顏色為隨機示意；更新時間於頁面載入時隨機選取 5～9 hours，編輯資料時保持固定。</p>
             <textarea id="activity-input" rows="10" spellcheck="false" aria-describedby="input-help input-status">【1850】 依卡諾斯買龍-hellscream  (+58 , 6:6)
 【768 】 Smilecc-chillwind-point  (+768 , 8:4)
 【768 】 粵龍-silverwing-hold  (+384 , 4:2)
@@ -76,7 +76,10 @@
 【1923】 懼滷-wrathbringer  (+72 , 20:13)</textarea>
             <p id="input-status" role="status" aria-live="polite"></p>
         </section>
-        <p style='margin-top:50px;'>⚠️請使用 Windows鍵 + Shift鍵 + S   或  PrintScreen鍵盤  來截圖</p>
+		
+        <p style='margin-top:30px;'>⚠️截圖方法1: Windows鍵 + Shift鍵 + S </p>		
+        <p style='margin-bottom:30px;'>⚠️截圖方法2: PrintScreen鍵盤 </p>
+		
         <div class="table-scroll" role="region" aria-label="PvP activities table" tabindex="0">
             <table>
                 <caption>輸入的 PvP 角色資料</caption>
@@ -92,6 +95,7 @@
         const status = document.getElementById('input-status');
         const classColors = ['#fff569', '#69ccf0', '#f58cba', '#0070de', '#ff7d0a', '#ffffff', '#00ff96', '#a330c9', '#c41f3b', '#abd473', '#9482c9', '#c79c6e', '#33937f'];
         const characterColors = new Map();
+        const lastUpdatedHours = Math.floor(Math.random() * 5) + 5;
 
         function parseActivities(text) {
             const rows = [];
@@ -157,7 +161,7 @@
                 summary.append(wins, element('span', '', '-'), losses);
                 summaryCell.append(summary);
 
-                const updated = element('td', 'updated', '6 hours');
+                const updated = element('td', 'updated', lastUpdatedHours + ' hours');
                 tr.append(characterCell, ratingCell, summaryCell, updated);
                 fragment.append(tr);
             });
