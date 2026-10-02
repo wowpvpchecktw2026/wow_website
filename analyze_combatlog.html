@@ -2174,7 +2174,7 @@
             const character = fullName.slice(0, fullName.indexOf('-'));
             const realm = normalized.slice(normalized.indexOf('-') + 1).split('-')
                 .map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
-            return character + '-' + realm;
+            return character + '-' + (realm === 'Queldorei' ? "Quel'dorei" : realm);
         }
         function render(data) {
             const maps = [...new Set(data.rounds.map(round => round.map + '（' + round.mapId + '）'))];
@@ -2192,7 +2192,7 @@
                 const character = fullName.slice(0, fullName.indexOf('-'));
                 const realm = normalized.slice(normalized.indexOf('-') + 1).split('-')
                     .map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
-                return character + '-' + realm;
+                return character + '-' + (realm === 'Queldorei' ? "Quel'dorei" : realm);
             }).join('、');
             const lossAnalysis = findHighestLossPlayers(data.rounds);
             const firstRound = data.rounds[0], lastRound = data.rounds[data.rounds.length - 1];
