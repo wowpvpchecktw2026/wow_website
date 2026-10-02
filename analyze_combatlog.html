@@ -1,0 +1,2270 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>WoW 戰鬥紀錄分析</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { margin: 0; background: #101010; color: #fff; font-family: "Microsoft JhengHei", sans-serif; line-height: 1.7; }
+        main { max-width: 1320px; margin: 40px auto; padding: 0 20px; }
+        h1 { margin-bottom: 8px; } h2 { font-size: 21px; margin: 0 0 8px; }
+        p { margin: 8px 0; } .muted, small { color: #a7aeb6; }
+        .panel, .round { background: #191919; border: 1px solid #303035; border-radius: 8px; padding: 20px; margin: 20px 0; }
+        input { max-width: 100%; } input::file-selector-button, button { background: #2971cb; border: 0; border-radius: 5px; padding: 10px 16px; color: #fff; cursor: pointer; margin-right: 12px; }
+        button:disabled { opacity: .5; cursor: default; } :focus-visible { outline: 2px solid #83bfff; outline-offset: 3px; }
+        progress { width: 100%; height: 10px; accent-color: #2971cb; }
+        .summary { display: flex; flex-wrap: wrap; gap: 16px 40px; } .summary strong { display: block; font-size: 24px; }
+        .table-scroll { overflow-x: auto; } table { width: 100%; min-width: 760px; border-collapse: collapse; font-size: 14px; }
+        th, td { padding: 12px; border-bottom: 1px solid #303035; text-align: right; font-variant-numeric: tabular-nums; }
+        th { color: #a7aeb6; font-weight: 500; white-space: nowrap; } th:first-child, td:first-child { text-align: left; }
+        tbody tr:hover { background: #ffffff06; } .warning { color: #ffca77; white-space: pre-line; } .dead { color: #ffaaa6; }
+        [hidden] { display: none !important; } @media(max-width: 700px) { main { margin: 20px auto; padding: 0 12px; } .panel, .round { padding: 14px; } }
+    </style>
+</head>
+<body>
+    <main>
+        <h1>WoW 戰鬥紀錄分析</h1>
+        <p class="muted">選取 WoWCombatLog.txt，檢視競技場地圖、回合時間及檢舉報告。檔案只在本機處理，不會上傳。</p>
+        <section class="panel">
+            <label for="log-file">選取戰鬥紀錄（.txt）</label>
+            <p><input id="log-file" type="file" accept=".txt,text/plain"> <button id="cancel" type="button" disabled>取消解析</button></p>
+            <progress id="progress" value="0" max="100" aria-label="解析進度"></progress>
+            <p id="status" role="status" aria-live="polite">尚未選取檔案。</p>
+        </section>
+
+        <p id="warnings" class="warning" role="status"></p>
+        <section id="overview" class="panel summary" hidden></section>
+        <div id="results"></div>
+    </main>
+    <script>
+        function combatWorker() {
+            function fields(text) {
+                const result = [];
+                let value = '', quoted = false;
+                for (let i = 0; i < text.length; i++) {
+                    const char = text[i];
+                    if (char === '"') {
+                        if (quoted && text[i + 1] === '"') { value += '"'; i++; }
+                        else { quoted = !quoted; }
+                    } else if (char === ',' && !quoted) { result.push(value); value = ''; }
+                    else { value += char; }
+                }
+                if (quoted) { throw new Error('CSV 引號未閉合'); }
+                result.push(value);
+                return result;
+            }
+            function stamp(text) {
+                const match = text.match(/^(\d+)\/(\d+)(?:\/(\d+))? (\d+):(\d+):(\d+)(?:\.(\d+))?$/);
+                if (!match) { return NaN; }
+                return Date.UTC(Number(match[3] || 2000), Number(match[1]) - 1, Number(match[2]), Number(match[4]), Number(match[5]), Number(match[6])) + Number('0.' + (match[7] || '0')) * 1000;
+            }
+            self.onmessage = async function (message) {
+                try {
+                    const file = message.data;
+                    const names = new Map(), owners = new Map(), rounds = [], warnings = new Set();
+                    let current = null, zone = null, version = false, lineNumber = 0, bad = 0, lastTime = '', bytes = 0;
+                    function finish(time, reason) {
+                        if (current && !current.end) { current.end = time; current.reason = reason; }
+                    }
+                    function processLine(line) {
+                        lineNumber++;
+                        if (!line.trim()) { return; }
+                        const match = line.match(/^(.*?)\s{2,}([A-Z_]+),(.+)$/);
+                        if (!match) { bad++; return; }
+                        const time = match[1], event = match[2];
+                        lastTime = time;
+                        if (event === 'COMBAT_LOG_VERSION') {
+                            const a = fields(event + ',' + match[3]);
+                            if (a[1] !== '22' || a[a.indexOf('ADVANCED_LOG_ENABLED') + 1] !== '1') {
+                                throw new Error('不支援此紀錄格式：需要 COMBAT_LOG_VERSION 22 且 ADVANCED_LOG_ENABLED 1。');
+                            }
+                            version = true; return;
+                        }
+                        if (!version) { throw new Error('找不到開頭的 COMBAT_LOG_VERSION；請選取包含版本資訊的完整原始 log。'); }
+                        if (event === 'COMBATANT_INFO') {
+                            if (current && !current.end) {
+                                const a = match[3].split(',', 26);
+                                current.players.set(a[0], a[24]);
+                                current.teams.set(a[0], a[1]);
+                            }
+                            return;
+                        }
+                        let a;
+                        try { a = fields(event + ',' + match[3]); } catch (_) { bad++; return; }
+                        if (event === 'ZONE_CHANGE') {
+                            finish(time, '缺少結束事件，以離開地圖時間截斷');
+                            zone = { id: a[1], name: a[2] }; current = null; return;
+                        }
+                        if (event === 'ARENA_MATCH_START') {
+                            finish(time, '缺少結束事件，以下一回合開始時間截斷');
+                            current = { start: time, end: null, reason: '', death: '', mapId: a[1], map: zone && zone.id === a[1] ? zone.name : '未知地圖', mode: a[3], players: new Map(), teams: new Map(), sources: new Map() };
+                            rounds.push(current); return;
+                        }
+                        if (event === 'ARENA_MATCH_END') { finish(time, '回合結束事件'); return; }
+                        if (a[1]?.startsWith('Player-')) { names.set(a[1], a[2]); }
+                        if (a[5]?.startsWith('Player-')) { names.set(a[5], a[6]); }
+                        if (event === 'SPELL_SUMMON') { owners.set(a[5], a[1]); }
+                        const prefix = event.startsWith('SWING_') ? 9 : 12;
+                        if (/^(Pet|Creature)-/.test(a[prefix] || '') && a[prefix + 1]?.startsWith('Player-')) { owners.set(a[prefix], a[prefix + 1]); }
+                        if (!current || current.end) { return; }
+                        if (event === 'UNIT_DIED' && a[5]?.startsWith('Player-') && /Solo Shuffle/i.test(current.mode)) {
+                            current.death = a[5]; finish(time, '首次玩家死亡'); return;
+                        }
+                        let kind, value, source = a[1];
+                        function number(index) {
+                            if (!/^-?\d+(?:\.\d+)?$/.test(a[index] || '')) { throw new Error('數值欄位異常'); }
+                            return Number(a[index]);
+                        }
+                        try {
+                            if (['SWING_DAMAGE', 'RANGE_DAMAGE', 'SPELL_DAMAGE', 'SPELL_PERIODIC_DAMAGE', 'DAMAGE_SHIELD', 'SPELL_BUILDING_DAMAGE'].includes(event)) {
+                                kind = 'damage'; value = Math.max(0, number(prefix + 19) - Math.max(0, number(prefix + 21)));
+                            } else if (['SPELL_HEAL', 'SPELL_PERIODIC_HEAL', 'SPELL_BUILDING_HEAL'].includes(event)) {
+                                kind = 'heal'; value = Math.max(0, number(31) - number(33));
+                            } else if (event === 'SPELL_ABSORBED') {
+                                const offset = /^(Player|Pet|Creature)-/.test(a[9] || '') || a[9] === '0000000000000000' ? 9 : 12;
+                                kind = 'absorb'; source = a[offset]; value = number(offset + 7);
+                            } else { return; }
+                        } catch (_) { bad++; return; }
+                        if (!current.sources.has(source)) { current.sources.set(source, { damage: 0, playerDamage: 0, heal: 0, absorb: 0 }); }
+                        const stat = current.sources.get(source);
+                        stat[kind] += value;
+                        if (kind === 'damage' && a[5]?.startsWith('Player-')) { stat.playerDamage += value; }
+                    }
+                    const reader = file.stream().getReader(), decoder = new TextDecoder('utf-8');
+                    let buffer = '';
+                    while (true) {
+                        const chunk = await reader.read();
+                        if (chunk.done) { break; }
+                        bytes += chunk.value.byteLength;
+                        buffer += decoder.decode(chunk.value, { stream: true });
+                        const lines = buffer.split('\n'); buffer = lines.pop();
+                        for (const line of lines) { processLine(line.replace(/\r$/, '')); }
+                        self.postMessage({ type: 'progress', value: Math.min(99, Math.floor(bytes / file.size * 100)) });
+                    }
+                    buffer += decoder.decode();
+                    if (buffer) { processLine(buffer.replace(/\r$/, '')); }
+                    finish(lastTime, '檔案結尾，缺少回合結束');
+                    if (!version) { throw new Error('檔案為空或不是支援的 WoW 戰鬥紀錄。'); }
+                    if (!rounds.length) { throw new Error('找不到 ARENA_MATCH_START，無法產生競技場回合分析。'); }
+                    if (bad) { warnings.add('有 ' + bad + ' 行格式異常或數值欄位不完整，已略過；統計可能不完整。'); }
+                    function owner(guid) {
+                        const visited = new Set();
+                        while (owners.has(guid) && !visited.has(guid)) { visited.add(guid); guid = owners.get(guid); }
+                        return guid;
+                    }
+                    let unattributed = 0;
+                    const result = rounds.map(function (round) {
+                        const stats = new Map();
+                        function ensure(guid) {
+                            if (!stats.has(guid)) { stats.set(guid, { guid: guid, name: names.get(guid) || guid, damage: 0, playerDamage: 0, heal: 0, absorb: 0 }); }
+                            return stats.get(guid);
+                        }
+                        for (const guid of round.players.keys()) { ensure(guid); }
+                        for (const [guid, values] of round.sources) {
+                            const player = owner(guid);
+                            if (!player?.startsWith('Player-')) { unattributed += values.damage + values.heal + values.absorb; continue; }
+                            const stat = ensure(player);
+                            for (const key of ['damage', 'playerDamage', 'heal', 'absorb']) { stat[key] += values[key]; }
+                        }
+                        return { start: round.start, end: round.end, duration: Math.max(0, (stamp(round.end) - stamp(round.start)) / 1000), reason: round.reason, deathGuid: round.death, teams: Object.fromEntries(round.teams), death: names.get(round.death) || round.death, map: round.map, mapId: round.mapId, mode: round.mode, stats: Array.from(stats.values()) };
+                    });
+                    if (unattributed) { 
+                       
+
+                    
+                    }
+                    self.postMessage({ type: 'result', rounds: result, warnings: Array.from(warnings), lines: lineNumber });
+                } catch (error) { self.postMessage({ type: 'error', message: error.message }); }
+            };
+        }
+        const fileInput = document.getElementById('log-file');
+        const status = document.getElementById('status');
+        const progress = document.getElementById('progress');
+        const cancel = document.getElementById('cancel');
+        const results = document.getElementById('results');
+        const overview = document.getElementById('overview');
+        let worker = null;
+        function stop() { if (worker) { worker.terminate(); worker = null; } cancel.disabled = true; }
+        function node(tag, text, className) { const element = document.createElement(tag); if (text !== undefined) { element.textContent = text; } if (className) { element.className = className; } return element; }
+        const characterClasses = [
+    {
+        "full_name": "小隻馬實況主-world-tree",
+        "class": "monk"
+    },
+    {
+        "full_name": "Ailbhe-world-tree",
+        "class": "priest"
+    },
+    {
+        "full_name": "喉龍痛-zealot-blade",
+        "class": "evoker"
+    },
+    {
+        "full_name": "Cchappy-spirestone",
+        "class": "hunter"
+    },
+    {
+        "full_name": "李相赫-zealot-blade",
+        "class": "warrior"
+    },
+    {
+        "full_name": "道德的長城-dragonmaw",
+        "class": "death-knight"
+    },
+    {
+        "full_name": "Runtasticxz-world-tree",
+        "class": "death-knight"
+    },
+    {
+        "full_name": "Elsfafa-silverwing-hold",
+        "class": "monk"
+    },
+    {
+        "full_name": "瞎瞎-zealot-blade",
+        "class": "demon-hunter"
+    },
+    {
+        "full_name": "Outcast-bleeding-hollow",
+        "class": "demon-hunter"
+    },
+    {
+        "full_name": "小刀尖向前衝-frostmane",
+        "class": "druid"
+    },
+    {
+        "full_name": "Qcxxb-arygos",
+        "class": "paladin"
+    },
+    {
+        "full_name": "歐陽科技薩-world-tree",
+        "class": "shaman"
+    },
+    {
+        "full_name": "深喉龍-world-tree",
+        "class": "evoker"
+    },
+    {
+        "full_name": "霜火峰有賊賊-world-tree",
+        "class": "rogue"
+    },
+    {
+        "full_name": "Ramakrishnan-world-tree",
+        "class": "monk"
+    },
+    {
+        "full_name": "狗狗-world-tree",
+        "class": "hunter"
+    },
+    {
+        "full_name": "小拳拳捶你喲-world-tree",
+        "class": "hunter"
+    },
+    {
+        "full_name": "吃龜啵啵-world-tree",
+        "class": "priest"
+    },
+    {
+        "full_name": "大隻馬實況主-world-tree",
+        "class": "druid"
+    },
+    {
+        "full_name": "無情跑酷機器-dragonmaw",
+        "class": "demon-hunter"
+    },
+    {
+        "full_name": "霜火峰有兩賊-shadowmoon",
+        "class": "rogue"
+    },
+    {
+        "full_name": "演員昊京哥-world-tree",
+        "class": "warrior"
+    },
+    {
+        "full_name": "貓貓-whisperwind",
+        "class": "paladin"
+    },
+    {
+        "full_name": "Miezlaiskis-order-of-the-cloud-serpent",
+        "class": "priest"
+    },
+    {
+        "full_name": "Escapelol-world-tree",
+        "class": "rogue"
+    },
+    {
+        "full_name": "香港蕩婦-world-tree",
+        "class": "priest"
+    },
+    {
+        "full_name": "世世為仙家-spirestone",
+        "class": "priest"
+    },
+    {
+        "full_name": "會噴水的姊姊-hellscream",
+        "class": "warlock"
+    },
+    {
+        "full_name": "Irises-order-of-the-cloud-serpent",
+        "class": "monk"
+    },
+    {
+        "full_name": "狐狸术士-world-tree",
+        "class": "warlock"
+    },
+    {
+        "full_name": "Reflection-menethil",
+        "class": "druid"
+    },
+    {
+        "full_name": "過來陪我玩-world-tree",
+        "class": "death-knight"
+    },
+    {
+        "full_name": "衝進去跳出來-world-tree",
+        "class": "warrior"
+    },
+    {
+        "full_name": "水幻虛空-menethil",
+        "class": "warrior"
+    },
+    {
+        "full_name": "安平蝦餅-zealot-blade",
+        "class": "monk"
+    },
+    {
+        "full_name": "Trollbloom-world-tree",
+        "class": "druid"
+    },
+    {
+        "full_name": "在刀尖上跳舞-world-tree",
+        "class": "rogue"
+    },
+    {
+        "full_name": "Noworriesbro-bleeding-hollow",
+        "class": "hunter"
+    },
+    {
+        "full_name": "會演是英雄-world-tree",
+        "class": "hunter"
+    },
+    {
+        "full_name": "貓的腳步聲-world-tree",
+        "class": "rogue"
+    },
+    {
+        "full_name": "吹逼逼-arygos",
+        "class": "paladin"
+    },
+    {
+        "full_name": "別問很可怕-icecrown",
+        "class": "warlock"
+    },
+    {
+        "full_name": "艾利北斯-lights-hope",
+        "class": "mage"
+    },
+    {
+        "full_name": "Bloodgga-hellscream",
+        "class": "shaman"
+    },
+    {
+        "full_name": "艾利南斯-lights-hope",
+        "class": "mage"
+    },
+    {
+        "full_name": "龍族傳奇被悶-stormscale",
+        "class": "mage"
+    },
+    {
+        "full_name": "一代一代火影-shadowmoon",
+        "class": "rogue"
+    },
+    {
+        "full_name": "一代火影-hellscream",
+        "class": "druid"
+    },
+    {
+        "full_name": "英雄瓦瓦-shadowmoon",
+        "class": "paladin"
+    },
+    {
+        "full_name": "Zsissly-world-tree",
+        "class": "evoker"
+    },
+    {
+        "full_name": "小芙菈棒-world-tree",
+        "class": "paladin"
+    },
+    {
+        "full_name": "艾利東斯-lights-hope",
+        "class": "mage"
+    },
+    {
+        "full_name": "瑪格哈薩克-bleeding-hollow",
+        "class": "shaman"
+    },
+    {
+        "full_name": "彩虹糖醬-hellscream",
+        "class": "demon-hunter"
+    },
+    {
+        "full_name": "赤鬼伯伯-queldorei",
+        "class": "mage"
+    },
+    {
+        "full_name": "Zsissly-dragonmaw",
+        "class": "druid"
+    },
+    {
+        "full_name": "若有急告者-world-tree",
+        "class": "paladin"
+    },
+    {
+        "full_name": "被我闷了吧-dragonmaw",
+        "class": "mage"
+    },
+    {
+        "full_name": "大隻馬救台服-wrathbringer",
+        "class": "paladin"
+    },
+    {
+        "full_name": "裝坤聾-silverwing-hold",
+        "class": "warlock"
+    },
+    {
+        "full_name": "小鳥天堂-silverwing-hold",
+        "class": "druid"
+    },
+    {
+        "full_name": "臭魚包魚包-dragonmaw",
+        "class": "warlock"
+    },
+    {
+        "full_name": "瞎逼逼-world-tree",
+        "class": "rogue"
+    },
+    {
+        "full_name": "小瞎瞎-arthas",
+        "class": "demon-hunter"
+    },
+    {
+        "full_name": "台灣淫娃-shadowmoon",
+        "class": "priest"
+    },
+    {
+        "full_name": "英雄瓦瓦-world-tree",
+        "class": "paladin"
+    },
+    {
+        "full_name": "Hairytookus-icecrown",
+        "class": "warlock"
+    },
+    {
+        "full_name": "Tlone-arygos",
+        "class": "mage"
+    },
+    {
+        "full_name": "土城的選擇-dragonmaw",
+        "class": "hunter"
+    },
+    {
+        "full_name": "Solvard-queldorei",
+        "class": "paladin"
+    },
+    {
+        "full_name": "Happylife-wrathbringer",
+        "class": "priest"
+    },
+    {
+        "full_name": "逝小九-dragonmaw",
+        "class": "shaman"
+    },
+    {
+        "full_name": "Vekhul-nightsong",
+        "class": "death-knight"
+    },
+    {
+        "full_name": "Tyrnb-nightsong",
+        "class": "shaman"
+    },
+    {
+        "full_name": "黑悟空鍾馗-hellscream",
+        "class": "demon-hunter"
+    },
+    {
+        "full_name": "Warherald-icecrown",
+        "class": "warrior"
+    },
+    {
+        "full_name": "南瓜车-arygos",
+        "class": "hunter"
+    },
+    {
+        "full_name": "來財-hellscream",
+        "class": "shaman"
+    },
+    {
+        "full_name": "樂觀熱狗-world-tree",
+        "class": "priest"
+    },
+    {
+        "full_name": "Eregard-queldorei",
+        "class": "priest"
+    },
+    {
+        "full_name": "鱗片蝙蝠-queldorei",
+        "class": "evoker"
+    },
+    {
+        "full_name": "豪想睡-queldorei",
+        "class": "warlock"
+    },
+    {
+        "full_name": "Campaign-icecrown",
+        "class": "hunter"
+    },
+    {
+        "full_name": "影帝-arygos",
+        "class": "druid"
+    },
+    {
+        "full_name": "Gødfrey-shadowmoon",
+        "class": "paladin"
+    },
+    {
+        "full_name": "小母牛逼逼-zealot-blade",
+        "class": "paladin"
+    },
+    {
+        "full_name": "啾巴比母捏牛-silverwing-hold",
+        "class": "demon-hunter"
+    },
+    {
+        "full_name": "專業鮑魚師傅-hellscream",
+        "class": "shaman"
+    },
+    {
+        "full_name": "紫氣東来-hellscream",
+        "class": "warlock"
+    },
+    {
+        "full_name": "佛殺-world-tree",
+        "class": "rogue"
+    },
+    {
+        "full_name": "Ouvin-nightsong",
+        "class": "demon-hunter"
+    },
+    {
+        "full_name": "英雄特帕瓦-world-tree",
+        "class": "paladin"
+    },
+    {
+        "full_name": "睡尼馬起來嗨-dragonmaw",
+        "class": "priest"
+    },
+    {
+        "full_name": "一演四季-dragonmaw",
+        "class": "evoker"
+    },
+    {
+        "full_name": "沒人材-queldorei",
+        "class": "evoker"
+    },
+    {
+        "full_name": "壓咧壓咧-world-tree",
+        "class": "monk"
+    },
+    {
+        "full_name": "因為很無聊-zealot-blade",
+        "class": "paladin"
+    },
+    {
+        "full_name": "超出苦眾生-world-tree",
+        "class": "paladin"
+    },
+    {
+        "full_name": "英雄弗丁-world-tree",
+        "class": "death-knight"
+    },
+    {
+        "full_name": "丶丨丶-bleeding-hollow",
+        "class": "druid"
+    },
+    {
+        "full_name": "盡憑生百幅-world-tree",
+        "class": "paladin"
+    },
+    {
+        "full_name": "Fctwoppv-world-tree",
+        "class": "druid"
+    },
+    {
+        "full_name": "Rhaegal-arygos",
+        "class": "evoker"
+    },
+    {
+        "full_name": "Minx-queldorei",
+        "class": "druid"
+    },
+    {
+        "full_name": "Smilecc-chillwind-point",
+        "class": "shaman"
+    },
+    {
+        "full_name": "璐娜在上面搖-world-tree",
+        "class": "priest"
+    },
+    {
+        "full_name": "Qwopfanboy-world-tree",
+        "class": "druid"
+    },
+    {
+        "full_name": "Shakeysham-shadowmoon",
+        "class": "shaman"
+    },
+    {
+        "full_name": "濟度諸厄難-world-tree",
+        "class": "paladin"
+    },
+    {
+        "full_name": "匹配關稅徵收-world-tree",
+        "class": "priest"
+    },
+    {
+        "full_name": "立院三讀禁止-world-tree",
+        "class": "druid"
+    },
+    {
+        "full_name": "七娘娘-chillwind-point",
+        "class": "rogue"
+    },
+    {
+        "full_name": "Reveure-queldorei",
+        "class": "evoker"
+    },
+    {
+        "full_name": "立院三讀通過-world-tree",
+        "class": "priest"
+    },
+    {
+        "full_name": "Bestcoach-shadowmoon",
+        "class": "priest"
+    },
+    {
+        "full_name": "Zsisslyxx-world-tree",
+        "class": "rogue"
+    },
+    {
+        "full_name": "都你毛-silverwing-hold",
+        "class": "druid"
+    },
+    {
+        "full_name": "鬼螳螂-silverwing-hold",
+        "class": "hunter"
+    },
+    {
+        "full_name": "與你何干-bleeding-hollow",
+        "class": "paladin"
+    },
+    {
+        "full_name": "新橋奶會流-world-tree",
+        "class": "priest"
+    },
+    {
+        "full_name": "Thoughtfully-bleeding-hollow",
+        "class": "paladin"
+    },
+    {
+        "full_name": "Seiba-lights-hope",
+        "class": "warlock"
+    },
+    {
+        "full_name": "超甲狂吸-dragonmaw",
+        "class": "warrior"
+    },
+    {
+        "full_name": "寂寂至無宗-spirestone",
+        "class": "priest"
+    },
+    {
+        "full_name": "玩不明白-queldorei",
+        "class": "druid"
+    },
+    {
+        "full_name": "墮落咩-order-of-the-cloud-serpent",
+        "class": "death-knight"
+    },
+    {
+        "full_name": "戰神瓦瓦-world-tree",
+        "class": "warrior"
+    },
+    {
+        "full_name": "噴屎嬰仔-bleeding-hollow",
+        "class": "monk"
+    },
+    {
+        "full_name": "宮紗筱-world-tree",
+        "class": "death-knight"
+    },
+    {
+        "full_name": "守護者瓦瓦-world-tree",
+        "class": "paladin"
+    },
+    {
+        "full_name": "英雄特帕瓦-shadowmoon",
+        "class": "paladin"
+    },
+    {
+        "full_name": "台服救星瓦瓦-world-tree",
+        "class": "paladin"
+    },
+    {
+        "full_name": "打到你服-icecrown",
+        "class": "rogue"
+    },
+    {
+        "full_name": "神奇小薩滿-icecrown",
+        "class": "shaman"
+    },
+    {
+        "full_name": "Xurogue-icecrown",
+        "class": "rogue"
+    },
+    {
+        "full_name": "瘦大奶腿玩年-whisperwind",
+        "class": "priest"
+    },
+    {
+        "full_name": "台服沒人鬥士-spirestone",
+        "class": "mage"
+    },
+    {
+        "full_name": "青傾圮-world-tree",
+        "class": "paladin"
+    },
+    {
+        "full_name": "乛亅乛-zealot-blade",
+        "class": "warlock"
+    },
+    {
+        "full_name": "被告悶了嗎-shadowmoon",
+        "class": "rogue"
+    },
+    {
+        "full_name": "Zsisslylol-zealot-blade",
+        "class": "demon-hunter"
+    },
+    {
+        "full_name": "六眼飛龍-queldorei",
+        "class": "evoker"
+    },
+    {
+        "full_name": "春末初夏-krol-blade",
+        "class": "priest"
+    },
+    {
+        "full_name": "Lycoris-world-tree",
+        "class": "priest"
+    },
+    {
+        "full_name": "Oldmamraiku-shadowmoon",
+        "class": "priest"
+    },
+    {
+        "full_name": "Woodpecker-skywall",
+        "class": "evoker"
+    },
+    {
+        "full_name": "周防有希-wrathbringer",
+        "class": "evoker"
+    },
+    {
+        "full_name": "Timmortal-world-tree",
+        "class": "shaman"
+    },
+    {
+        "full_name": "咸契於五行-world-tree",
+        "class": "paladin"
+    },
+    {
+        "full_name": "Asmodeus-icecrown",
+        "class": "death-knight"
+    },
+    {
+        "full_name": "Siestaxx-arygos",
+        "class": "shaman"
+    },
+    {
+        "full_name": "Bananwarrior-icecrown",
+        "class": "warrior"
+    },
+    {
+        "full_name": "神奇西瓜-icecrown",
+        "class": "demon-hunter"
+    },
+    {
+        "full_name": "Ravnskar-arthas",
+        "class": "rogue"
+    },
+    {
+        "full_name": "Hwilly-queldorei",
+        "class": "druid"
+    },
+    {
+        "full_name": "Solarion-shadowmoon",
+        "class": "warrior"
+    },
+    {
+        "full_name": "Eldros-queldorei",
+        "class": "hunter"
+    },
+    {
+        "full_name": "一千九好玩嗎-world-tree",
+        "class": "paladin"
+    },
+    {
+        "full_name": "我老獵-zealot-blade",
+        "class": "hunter"
+    },
+    {
+        "full_name": "瑪格哈哈獵-bleeding-hollow",
+        "class": "hunter"
+    },
+    {
+        "full_name": "王弘鈞小丑呢-wrathbringer",
+        "class": "hunter"
+    },
+    {
+        "full_name": "路過的僧-icecrown",
+        "class": "monk"
+    },
+    {
+        "full_name": "接著排-lights-hope",
+        "class": "priest"
+    },
+    {
+        "full_name": "吸你的匹-lights-hope",
+        "class": "paladin"
+    },
+    {
+        "full_name": "Gxbb-world-tree",
+        "class": "priest"
+    },
+    {
+        "full_name": "單排第一找我-world-tree",
+        "class": "priest"
+    },
+    {
+        "full_name": "左近寺右閃光-shadowmoon",
+        "class": "warrior"
+    },
+    {
+        "full_name": "席維尼史特龍-menethil",
+        "class": "evoker"
+    },
+    {
+        "full_name": "心懷草莓戀-silverwing-hold",
+        "class": "paladin"
+    },
+    {
+        "full_name": "鬥逼龍-queldorei",
+        "class": "evoker"
+    },
+    {
+        "full_name": "聾盛驊-wrathbringer",
+        "class": "priest"
+    },
+    {
+        "full_name": "Lumama-world-tree",
+        "class": "priest"
+    },
+    {
+        "full_name": "影月魔導士-world-tree",
+        "class": "monk"
+    },
+    {
+        "full_name": "腦殘罪-wrathbringer",
+        "class": "death-knight"
+    },
+    {
+        "full_name": "潛行蜥蜴-menethil",
+        "class": "rogue"
+    },
+    {
+        "full_name": "最最貓-menethil",
+        "class": "hunter"
+    },
+    {
+        "full_name": "小書痴下剋上-order-of-the-cloud-serpent",
+        "class": "rogue"
+    },
+    {
+        "full_name": "肥滋滋大鳥鳥-world-tree",
+        "class": "druid"
+    },
+    {
+        "full_name": "買龍變手打了-world-tree",
+        "class": "warrior"
+    },
+    {
+        "full_name": "捏捏大兔大-icecrown",
+        "class": "druid"
+    },
+    {
+        "full_name": "邪魅不能停-world-tree",
+        "class": "druid"
+    },
+    {
+        "full_name": "於是七元君-world-tree",
+        "class": "paladin"
+    },
+    {
+        "full_name": "捏捏大兔大-zealot-blade",
+        "class": "druid"
+    },
+    {
+        "full_name": "名偵探摳蘭-shadowmoon",
+        "class": "monk"
+    },
+    {
+        "full_name": "Zsisslylol-world-tree",
+        "class": "demon-hunter"
+    },
+    {
+        "full_name": "捏捏大兔大-shadowmoon",
+        "class": "druid"
+    },
+    {
+        "full_name": "專搞正常玩家-world-tree",
+        "class": "shaman"
+    },
+    {
+        "full_name": "六演飛魚-icecrown",
+        "class": "paladin"
+    },
+    {
+        "full_name": "心懷北車吃飯-world-tree",
+        "class": "evoker"
+    },
+    {
+        "full_name": "傷心水蜜桃-icecrown",
+        "class": "warlock"
+    },
+    {
+        "full_name": "吸晶瓶是狗-nightsong",
+        "class": "evoker"
+    },
+    {
+        "full_name": "卡皮巴拉狗-world-tree",
+        "class": "priest"
+    },
+    {
+        "full_name": "藍莓之夜-icecrown",
+        "class": "warlock"
+    },
+    {
+        "full_name": "鬥鬥龍-queldorei",
+        "class": "evoker"
+    },
+    {
+        "full_name": "大支馬幫你口-hellscream",
+        "class": "death-knight"
+    },
+    {
+        "full_name": "單身狗詛咒-world-tree",
+        "class": "warlock"
+    },
+    {
+        "full_name": "搞心態別哭-wrathbringer",
+        "class": "druid"
+    },
+    {
+        "full_name": "大黑撚-hellscream",
+        "class": "shaman"
+    },
+    {
+        "full_name": "豪門桑拿殿-hellscream",
+        "class": "priest"
+    },
+    {
+        "full_name": "聾成仔愛深蹲-hellscream",
+        "class": "monk"
+    },
+    {
+        "full_name": "憋佬仔-hellscream",
+        "class": "shaman"
+    },
+    {
+        "full_name": "東卍-hellscream",
+        "class": "evoker"
+    },
+    {
+        "full_name": "都術你的毛-silverwing-hold",
+        "class": "warlock"
+    },
+    {
+        "full_name": "火爆鳥-silverwing-hold",
+        "class": "shaman"
+    },
+    {
+        "full_name": "鬼行蹤-krol-blade",
+        "class": "death-knight"
+    },
+    {
+        "full_name": "都你滴毛-silverwing-hold",
+        "class": "demon-hunter"
+    },
+    {
+        "full_name": "都沒毛-queldorei",
+        "class": "shaman"
+    },
+    {
+        "full_name": "鬼蹤-silverwing-hold",
+        "class": "mage"
+    },
+    {
+        "full_name": "都您的毛-silverwing-hold",
+        "class": "rogue"
+    },
+    {
+        "full_name": "都是你的毛-silverwing-hold",
+        "class": "monk"
+    },
+    {
+        "full_name": "Steamedbun-dragonmaw",
+        "class": "shaman"
+    },
+    {
+        "full_name": "秋巴比母捏牛-lights-hope",
+        "class": "paladin"
+    },
+    {
+        "full_name": "母捏牛-silverwing-hold",
+        "class": "druid"
+    },
+    {
+        "full_name": "都你的毛-silverwing-hold",
+        "class": "priest"
+    },
+    {
+        "full_name": "Iövöl-world-tree",
+        "class": "shaman"
+    },
+    {
+        "full_name": "Cretrol-whisperwind",
+        "class": "warlock"
+    },
+    {
+        "full_name": "Demonl-order-of-the-cloud-serpent",
+        "class": "monk"
+    },
+    {
+        "full_name": "進了又跳了-wrathbringer",
+        "class": "rogue"
+    },
+    {
+        "full_name": "Pöisøn-silverwing-hold",
+        "class": "rogue"
+    },
+    {
+        "full_name": "嵐教獸捅住你-nightsong",
+        "class": "demon-hunter"
+    },
+    {
+        "full_name": "東爛山-zealot-blade",
+        "class": "druid"
+    },
+    {
+        "full_name": "公車炸彈-whisperwind",
+        "class": "rogue"
+    },
+    {
+        "full_name": "Iövöl-zealot-blade",
+        "class": "warrior"
+    },
+    {
+        "full_name": "北爛山-wrathbringer",
+        "class": "warrior"
+    },
+    {
+        "full_name": "啊啊不要停啊-skywall",
+        "class": "priest"
+    },
+    {
+        "full_name": "薩挖低咖-world-tree",
+        "class": "shaman"
+    },
+    {
+        "full_name": "前輩-hellscream",
+        "class": "warrior"
+    },
+    {
+        "full_name": "Iöwöl-old-blanchy",
+        "class": "rogue"
+    },
+    {
+        "full_name": "Iövöl-old-blanchy",
+        "class": "hunter"
+    },
+    {
+        "full_name": "Iövöl-arygos",
+        "class": "demon-hunter"
+    },
+    {
+        "full_name": "就是搞你們-arygos",
+        "class": "evoker"
+    },
+    {
+        "full_name": "Iôvôl-old-blanchy",
+        "class": "priest"
+    },
+    {
+        "full_name": "御令嬢-skywall",
+        "class": "hunter"
+    },
+    {
+        "full_name": "Iøvøl-old-blanchy",
+        "class": "druid"
+    },
+    {
+        "full_name": "Iövöl-icecrown",
+        "class": "monk"
+    },
+    {
+        "full_name": "Missal-arygos",
+        "class": "mage"
+    },
+    {
+        "full_name": "發臭聖誕襪襪-arygos",
+        "class": "priest"
+    },
+    {
+        "full_name": "Bluestalhi-menethil",
+        "class": "mage"
+    },
+    {
+        "full_name": "Iövöl-hellscream",
+        "class": "warlock"
+    },
+    {
+        "full_name": "這把你輸-spirestone",
+        "class": "monk"
+    },
+    {
+        "full_name": "Iövöl-demon-fall-canyon",
+        "class": "death-knight"
+    },
+    {
+        "full_name": "咚琪琪-whisperwind",
+        "class": "evoker"
+    },
+    {
+        "full_name": "期待被制裁-chillwind-point",
+        "class": "demon-hunter"
+    },
+    {
+        "full_name": "Ubadbad-skywall",
+        "class": "evoker"
+    },
+    {
+        "full_name": "狗刷-hellscream",
+        "class": "mage"
+    },
+    {
+        "full_name": "烏魯奇奧菈-shadowmoon",
+        "class": "paladin"
+    },
+    {
+        "full_name": "苡玲-shadowmoon",
+        "class": "demon-hunter"
+    },
+    {
+        "full_name": "Iövöl-dragonmaw",
+        "class": "priest"
+    },
+    {
+        "full_name": "龍成華套掉了-spirestone",
+        "class": "warlock"
+    },
+    {
+        "full_name": "Mes-silverwing-hold",
+        "class": "death-knight"
+    },
+    {
+        "full_name": "都你毛-lights-hope",
+        "class": "demon-hunter"
+    },
+    {
+        "full_name": "後撤步-whisperwind",
+        "class": "demon-hunter"
+    },
+    {
+        "full_name": "過來陪你玩-arygos",
+        "class": "death-knight"
+    },
+    {
+        "full_name": "Reveur-queldorei",
+        "class": "monk"
+    },
+    {
+        "full_name": "不開咪都人妖-chillwind-point",
+        "class": "hunter"
+    },
+    {
+        "full_name": "Iövöl-bleeding-hollow",
+        "class": "paladin"
+    },
+    {
+        "full_name": "馬蚤馬蚤-world-tree",
+        "class": "evoker"
+    },
+    {
+        "full_name": "Pianissimo-shadowmoon",
+        "class": "mage"
+    },
+    {
+        "full_name": "Iövöl-nightsong",
+        "class": "mage"
+    },
+    {
+        "full_name": "劍魔九千勝-queldorei",
+        "class": "warrior"
+    },
+    {
+        "full_name": "地獄神父紅蓮-queldorei",
+        "class": "warrior"
+    },
+    {
+        "full_name": "俠菩提-queldorei",
+        "class": "warrior"
+    },
+    {
+        "full_name": "朱雀宇智波鼬-bleeding-hollow",
+        "class": "warrior"
+    },
+    {
+        "full_name": "龍皇熾焰武神-queldorei",
+        "class": "warrior"
+    },
+    {
+        "full_name": "劍非道-arthas",
+        "class": "warrior"
+    },
+    {
+        "full_name": "龍哥教你深蹲-order-of-the-cloud-serpent",
+        "class": "warlock"
+    },
+    {
+        "full_name": "俏皮小哈比-hellscream",
+        "class": "mage"
+    },
+    {
+        "full_name": "俏皮小尾巴-hellscream",
+        "class": "hunter"
+    },
+    {
+        "full_name": "陽光小哈比-hellscream",
+        "class": "demon-hunter"
+    },
+    {
+        "full_name": "俏皮小酷騎-hellscream",
+        "class": "paladin"
+    },
+    {
+        "full_name": "俏皮小護士-arthas",
+        "class": "priest"
+    },
+    {
+        "full_name": "Atmlock-arygos",
+        "class": "shaman"
+    },
+    {
+        "full_name": "豁落洞玄文-spirestone",
+        "class": "priest"
+    },
+    {
+        "full_name": "平風-arygos",
+        "class": "paladin"
+    },
+    {
+        "full_name": "Pavane-shadowmoon",
+        "class": "shaman"
+    },
+    {
+        "full_name": "真人無上德-spirestone",
+        "class": "priest"
+    },
+    {
+        "full_name": "鬼靈戰鬥寶箱-world-tree",
+        "class": "rogue"
+    },
+    {
+        "full_name": "Nebliet-whisperwind",
+        "class": "rogue"
+    },
+    {
+        "full_name": "Valkhar-whisperwind",
+        "class": "paladin"
+    },
+    {
+        "full_name": "莣蔇苨-whisperwind",
+        "class": "druid"
+    },
+    {
+        "full_name": "Mazurak-world-tree",
+        "class": "paladin"
+    },
+    {
+        "full_name": "愉悅犯-arygos",
+        "class": "priest"
+    },
+    {
+        "full_name": "超淩三界途-spirestone",
+        "class": "priest"
+    },
+    {
+        "full_name": "Desperation-menethil",
+        "class": "priest"
+    },
+    {
+        "full_name": "英雄特特-lights-hope",
+        "class": "paladin"
+    },
+    {
+        "full_name": "不生亦不滅-spirestone",
+        "class": "priest"
+    },
+    {
+        "full_name": "欲生因蓮花-spirestone",
+        "class": "priest"
+    },
+    {
+        "full_name": "邪惡小哈比-hellscream",
+        "class": "death-knight"
+    },
+    {
+        "full_name": "俏皮小牛仔-hellscream",
+        "class": "hunter"
+    },
+    {
+        "full_name": "法師之尊-whisperwind",
+        "class": "mage"
+    },
+    {
+        "full_name": "我的刀頓-menethil",
+        "class": "warrior"
+    },
+    {
+        "full_name": "我沒有請保鑣-menethil",
+        "class": "priest"
+    },
+    {
+        "full_name": "孰計年劫多-spirestone",
+        "class": "priest"
+    },
+    {
+        "full_name": "小美蜜-world-tree",
+        "class": "priest"
+    },
+    {
+        "full_name": "瓦瓦捍衛台服-lights-hope",
+        "class": "paladin"
+    },
+    {
+        "full_name": "成為你的白馬-queldorei",
+        "class": "warlock"
+    },
+    {
+        "full_name": "可愛行者-world-tree",
+        "class": "death-knight"
+    },
+    {
+        "full_name": "俏皮小怪獸-hellscream",
+        "class": "druid"
+    },
+    {
+        "full_name": "俏皮黑眼圈-hellscream",
+        "class": "monk"
+    },
+    {
+        "full_name": "俏皮小惡魔-hellscream",
+        "class": "warlock"
+    },
+    {
+        "full_name": "瑪格哈迪克-old-blanchy",
+        "class": "death-knight"
+    },
+    {
+        "full_name": "Noctilucent-skywall",
+        "class": "druid"
+    },
+    {
+        "full_name": "Late-skywall",
+        "class": "death-knight"
+    },
+    {
+        "full_name": "Rareness-skywall",
+        "class": "rogue"
+    },
+    {
+        "full_name": "Cerulean-skywall",
+        "class": "priest"
+    },
+    {
+        "full_name": "Void-skywall",
+        "class": "evoker"
+    },
+    {
+        "full_name": "結婚會請我嗎-chillwind-point",
+        "class": "mage"
+    },
+    {
+        "full_name": "台服救星瓦瓦-lights-hope",
+        "class": "paladin"
+    },
+    {
+        "full_name": "雅波-order-of-the-cloud-serpent",
+        "class": "paladin"
+    },
+    {
+        "full_name": "長生超八難-world-tree",
+        "class": "druid"
+    },
+    {
+        "full_name": "俏皮小龍貓-hellscream",
+        "class": "evoker"
+    },
+    {
+        "full_name": "Pasedadad-silverwing-hold",
+        "class": "paladin"
+    },
+    {
+        "full_name": "Coagulation-skywall",
+        "class": "monk"
+    },
+    {
+        "full_name": "Hyacinth-zealot-blade",
+        "class": "priest"
+    },
+    {
+        "full_name": "Middledie-wrathbringer",
+        "class": "priest"
+    },
+    {
+        "full_name": "三魂得安健-world-tree",
+        "class": "druid"
+    },
+    {
+        "full_name": "真一文字-whisperwind",
+        "class": "rogue"
+    },
+    {
+        "full_name": "Corruption-sundown-marsh",
+        "class": "warlock"
+    },
+    {
+        "full_name": "乛亅乛-world-tree",
+        "class": "priest"
+    },
+    {
+        "full_name": "Periwinkle-skywall",
+        "class": "hunter"
+    },
+    {
+        "full_name": "牛人變牛仁-menethil",
+        "class": "druid"
+    },
+    {
+        "full_name": "跑得快練得快-world-tree",
+        "class": "demon-hunter"
+    },
+    {
+        "full_name": "消磨時間-bleeding-hollow",
+        "class": "warlock"
+    },
+    {
+        "full_name": "嗷嗚小熊貓-bleeding-hollow",
+        "class": "shaman"
+    },
+    {
+        "full_name": "師承逼逼思-hellscream",
+        "class": "hunter"
+    },
+    {
+        "full_name": "東卍-arthas",
+        "class": "evoker"
+    },
+    {
+        "full_name": "玩奶專家-hellscream",
+        "class": "priest"
+    },
+    {
+        "full_name": "殺頂頂-whisperwind",
+        "class": "shaman"
+    },
+    {
+        "full_name": "可莉餅-world-tree",
+        "class": "priest"
+    },
+    {
+        "full_name": "粵龍-silverwing-hold",
+        "class": "hunter"
+    },
+    {
+        "full_name": "靜嫦菈棒-krol-blade",
+        "class": "monk"
+    },
+    {
+        "full_name": "看著我的眼睛-queldorei",
+        "class": "monk"
+    },
+    {
+        "full_name": "請善待好自己-world-tree",
+        "class": "evoker"
+    },
+    {
+        "full_name": "離開我的依賴-world-tree",
+        "class": "druid"
+    },
+    {
+        "full_name": "火隱-world-tree",
+        "class": "rogue"
+    },
+    {
+        "full_name": "你我過了幾天-queldorei",
+        "class": "paladin"
+    },
+    {
+        "full_name": "Ffqqzmauvav-dragonmaw",
+        "class": "druid"
+    },
+    {
+        "full_name": "在迦納國離婚-silverwing-hold",
+        "class": "evoker"
+    },
+    {
+        "full_name": "夜黎-world-tree",
+        "class": "demon-hunter"
+    },
+    {
+        "full_name": "Penyerangan-bleeding-hollow",
+        "class": "warlock"
+    },
+    {
+        "full_name": "Kaler-world-tree",
+        "class": "priest"
+    },
+    {
+        "full_name": "黎妃爾-world-tree",
+        "class": "hunter"
+    },
+    {
+        "full_name": "可愛牛牛-world-tree",
+        "class": "warrior"
+    },
+    {
+        "full_name": "Kalvishblind-world-tree",
+        "class": "demon-hunter"
+    },
+    {
+        "full_name": "卍木偶卍-world-tree",
+        "class": "warlock"
+    },
+    {
+        "full_name": "Casper-demon-fall-canyon",
+        "class": "paladin"
+    },
+    {
+        "full_name": "來去泰國搓澡-demon-fall-canyon",
+        "class": "shaman"
+    },
+    {
+        "full_name": "法大猋-demon-fall-canyon",
+        "class": "paladin"
+    },
+    {
+        "full_name": "來涵老師這邊-demon-fall-canyon",
+        "class": "druid"
+    },
+    {
+        "full_name": "法大麻飛了-demon-fall-canyon",
+        "class": "hunter"
+    },
+    {
+        "full_name": "elmori-arygos",
+        "class": "death-knight"
+    },
+    {
+        "full_name": "法大教我-sundown-marsh",
+        "class": "monk"
+    },
+    {
+        "full_name": "都你矛-silverwing-hold",
+        "class": "warrior"
+    },
+    {
+        "full_name": "熊熊忘記誰-silverwing-hold",
+        "class": "monk"
+    },
+    {
+        "full_name": "這把我贏-krol-blade",
+        "class": "priest"
+    },
+    {
+        "full_name": "凱特特-old-blanchy",
+        "class": "priest"
+    },
+    {
+        "full_name": "Deepbreathe-queldorei",
+        "class": "evoker"
+    },
+    {
+        "full_name": "Elmori-arygos",
+        "class": "death-knight"
+    },
+    {
+        "full_name": "Elmog-arygos",
+        "class": "mage"
+    },
+    {
+        "full_name": "狐辣-menethil",
+        "class": "priest"
+    },
+    {
+        "full_name": "Shaobing-sundown-marsh",
+        "class": "evoker"
+    },
+    {
+        "full_name": "Shaotang-sundown-marsh",
+        "class": "demon-hunter"
+    },
+    {
+        "full_name": "少冰半糖-sundown-marsh",
+        "class": "death-knight"
+    },
+    {
+        "full_name": "少冰少糖-sundown-marsh",
+        "class": "priest"
+    },
+    {
+        "full_name": "少冰無糖-sundown-marsh",
+        "class": "rogue"
+    },
+    {
+        "full_name": "少冰全糖-sundown-marsh",
+        "class": "hunter"
+    },
+    {
+        "full_name": "少冰-sundown-marsh",
+        "class": "warlock"
+    },
+    {
+        "full_name": "Shaoteng-sundown-marsh",
+        "class": "paladin"
+    },
+    {
+        "full_name": "六眼飛魚-world-tree",
+        "class": "druid"
+    },
+    {
+        "full_name": "羽澈-whisperwind",
+        "class": "mage"
+    },
+    {
+        "full_name": "Illuminate-skywall",
+        "class": "priest"
+    },
+    {
+        "full_name": "Pekopeko-arygos",
+        "class": "shaman"
+    },
+    {
+        "full_name": "無糖無冰-sundown-marsh",
+        "class": "demon-hunter"
+    },
+    {
+        "full_name": "舞姬力一卜-whisperwind",
+        "class": "monk"
+    },
+    {
+        "full_name": "石化根-arygos",
+        "class": "rogue"
+    },
+    {
+        "full_name": "Elmon-shadowmoon",
+        "class": "demon-hunter"
+    },
+    {
+        "full_name": "Elmo-queldorei",
+        "class": "warlock"
+    },
+    {
+        "full_name": "Elmojr-arygos",
+        "class": "warlock"
+    },
+    {
+        "full_name": "Elwo-queldorei",
+        "class": "warrior"
+    },
+    {
+        "full_name": "Elmok-world-tree",
+        "class": "paladin"
+    },
+    {
+        "full_name": "Elmos-shadowmoon",
+        "class": "shaman"
+    },
+    {
+        "full_name": "Goface-arygos",
+        "class": "hunter"
+    },
+    {
+        "full_name": "Elmog-world-tree",
+        "class": "mage"
+    },
+    {
+        "full_name": "蘑菇蘑菇-arygos",
+        "class": "warrior"
+    },
+    {
+        "full_name": "Elmop-queldorei",
+        "class": "priest"
+    },
+    {
+        "full_name": "Elmoy-arygos",
+        "class": "druid"
+    },
+    {
+        "full_name": "Elmov-queldorei",
+        "class": "priest"
+    },
+    {
+        "full_name": "Egirl-arygos",
+        "class": "evoker"
+    },
+    {
+        "full_name": "Placebó-arygos",
+        "class": "paladin"
+    },
+    {
+        "full_name": "Elmodk-shadowmoon",
+        "class": "death-knight"
+    },
+    {
+        "full_name": "Peko-arygos",
+        "class": "druid"
+    },
+    {
+        "full_name": "Placebo-queldorei",
+        "class": "paladin"
+    },
+    {
+        "full_name": "Elmoi-queldorei",
+        "class": "hunter"
+    },
+    {
+        "full_name": "Elmo-arygos",
+        "class": "mage"
+    },
+    {
+        "full_name": "果咩涅-arygos",
+        "class": "priest"
+    },
+    {
+        "full_name": "Oopsiee-arygos",
+        "class": "monk"
+    },
+    {
+        "full_name": "果咩捏-shadowmoon",
+        "class": "mage"
+    },
+    {
+        "full_name": "Elmozen-arygos",
+        "class": "monk"
+    },
+    {
+        "full_name": "Prelmo-shadowmoon",
+        "class": "priest"
+    },
+    {
+        "full_name": "Emoker-arygos",
+        "class": "evoker"
+    },
+    {
+        "full_name": "Elmonkas-arygos",
+        "class": "demon-hunter"
+    },
+    {
+        "full_name": "Elmog-shadowmoon",
+        "class": "mage"
+    },
+    {
+        "full_name": "果果咩捏-arygos",
+        "class": "death-knight"
+    },
+    {
+        "full_name": "Omle-queldorei",
+        "class": "warlock"
+    },
+    {
+        "full_name": "Emoker-shadowmoon",
+        "class": "evoker"
+    },
+    {
+        "full_name": "Elmok-shadowmoon",
+        "class": "paladin"
+    },
+    {
+        "full_name": "Elmos-arygos",
+        "class": "shaman"
+    },
+    {
+        "full_name": "果咩捏-arygos",
+        "class": "mage"
+    },
+    {
+        "full_name": "Elmodudu-arygos",
+        "class": "druid"
+    },
+    {
+        "full_name": "Elmob-whisperwind",
+        "class": "hunter"
+    },
+    {
+        "full_name": "Elmon-arygos",
+        "class": "demon-hunter"
+    },
+    {
+        "full_name": "Elmop-shadowmoon",
+        "class": "rogue"
+    },
+    {
+        "full_name": "Elmod-queldorei",
+        "class": "druid"
+    },
+    {
+        "full_name": "Elmoz-shadowmoon",
+        "class": "monk"
+    },
+    {
+        "full_name": "Elmoet-arygos",
+        "class": "shaman"
+    },
+    {
+        "full_name": "Shaotong-sundown-marsh",
+        "class": "demon-hunter"
+    },
+    {
+        "full_name": "依卡諾斯買龍-hellscream",
+        "class": "shaman"
+    },
+    {
+        "full_name": "Bipolar-arygos",
+        "class": "priest"
+    },
+    {
+        "full_name": "雷克豹-skywall",
+        "class": "hunter"
+    },
+    {
+        "full_name": "滷奚隹雞隹-sundown-marsh",
+        "class": "druid"
+    },
+    {
+        "full_name": "下巴長陰毛-hellscream",
+        "class": "priest"
+    },
+    {
+        "full_name": "Bloodniggx-hellscream",
+        "class": "shaman"
+    },
+    {
+        "full_name": "Bloodniggn-hellscream",
+        "class": "shaman"
+    },
+    {
+        "full_name": "鐵滅霸-hellscream",
+        "class": "warrior"
+    },
+    {
+        "full_name": "Blackblood-hellscream",
+        "class": "death-knight"
+    },
+    {
+        "full_name": "鐵血派我來的-hellscream",
+        "class": "druid"
+    },
+    {
+        "full_name": "流氓派我來的-hellscream",
+        "class": "death-knight"
+    },
+    {
+        "full_name": "師承舔狗達-hellscream",
+        "class": "warlock"
+    },
+    {
+        "full_name": "本大鐵-hellscream",
+        "class": "monk"
+    },
+    {
+        "full_name": "Huaoovo-whisperwind",
+        "class": "demon-hunter"
+    },
+    {
+        "full_name": "Ltno-sundown-marsh",
+        "class": "warrior"
+    },
+    {
+        "full_name": "Miud-sundown-marsh",
+        "class": "death-knight"
+    },
+    {
+        "full_name": "青璃-wrathbringer",
+        "class": "hunter"
+    },
+    {
+        "full_name": "Myatchm-sundown-marsh",
+        "class": "monk"
+    },
+    {
+        "full_name": "Melder-sundown-marsh",
+        "class": "priest"
+    },
+    {
+        "full_name": "Donchi-sundown-marsh",
+        "class": "monk"
+    },
+    {
+        "full_name": "倒臥醉花顏-skywall",
+        "class": "warrior"
+    },
+    {
+        "full_name": "瑀芯蔚-shadowmoon",
+        "class": "hunter"
+    },
+    {
+        "full_name": "Liotn-skywall",
+        "class": "rogue"
+    },
+    {
+        "full_name": "Drej-sundown-marsh",
+        "class": "warrior"
+    },
+    {
+        "full_name": "你老傀歸來-hellscream",
+        "class": "rogue"
+    },
+    {
+        "full_name": "鼓王蝗自民-world-tree",
+        "class": "priest"
+    },
+    {
+        "full_name": "無業啃老綠光-wrathbringer",
+        "class": "rogue"
+    },
+    {
+        "full_name": "趁熱吃雞雞-wrathbringer",
+        "class": "monk"
+    },
+    {
+        "full_name": "薙草稻光-hellscream",
+        "class": "demon-hunter"
+    },
+    {
+        "full_name": "長草顏團子-hellscream",
+        "class": "monk"
+    },
+    {
+        "full_name": "魔劍茱麗葉-hellscream",
+        "class": "warrior"
+    },
+    {
+        "full_name": "懼滷-wrathbringer",
+        "class": "priest"
+    },
+    {
+        "full_name": "小兔兔霖-queldorei",
+        "class": "warrior"
+    },
+    {
+        "full_name": "牛你娘的逼-queldorei",
+        "class": "priest"
+    },
+    {
+        "full_name": "超硬帕拉丁-queldorei",
+        "class": "paladin"
+    },
+    {
+        "full_name": "賦爸爸-queldorei",
+        "class": "rogue"
+    },
+    {
+        "full_name": "Silencess-queldorei",
+        "class": "warlock"
+    },
+    {
+        "full_name": "胯下小魔龍-queldorei",
+        "class": "evoker"
+    },
+    {
+        "full_name": "瓦特涅-queldorei",
+        "class": "mage"
+    },
+    {
+        "full_name": "迪奧小布-menethil",
+        "class": "druid"
+    },
+    {
+        "full_name": "競技場大濕-queldorei",
+        "class": "demon-hunter"
+    },
+    {
+        "full_name": "雨木木-queldorei",
+        "class": "paladin"
+    },
+    {
+        "full_name": "王宣富-queldorei",
+        "class": "paladin"
+    },
+    {
+        "full_name": "Fatsm-whisperwind",
+        "class": "shaman"
+    },
+    {
+        "full_name": "自己人別防守-whisperwind",
+        "class": "priest"
+    },
+    {
+        "full_name": "大腳老李-silverwing-hold",
+        "class": "monk"
+    },
+    {
+        "full_name": "Senang-whisperwind",
+        "class": "druid"
+    },
+    {
+        "full_name": "哥一斯一拉-shadowmoon",
+        "class": "evoker"
+    },
+    {
+        "full_name": "姚一明一哥-shadowmoon",
+        "class": "rogue"
+    },
+    {
+        "full_name": "叫豪哥-nightsong",
+        "class": "druid"
+    },
+    {
+        "full_name": "Miudo-queldorei",
+        "class": "shaman"
+    },
+    {
+        "full_name": "牛末-lights-hope",
+        "class": "paladin"
+    },
+    {
+        "full_name": "大乃妹-menethil",
+        "class": "monk"
+    },
+    {
+        "full_name": "騎豬豬看日出-whisperwind",
+        "class": "rogue"
+    },
+    {
+        "full_name": "大一屍一兄-shadowmoon",
+        "class": "death-knight"
+    },
+    {
+        "full_name": "閃一電一俠-shadowmoon",
+        "class": "shaman"
+    },
+    {
+        "full_name": "酷一老一爹-shadowmoon",
+        "class": "hunter"
+    },
+    {
+        "full_name": "心懷買龍嗎-world-tree",
+        "class": "warrior"
+    }
+];
+        const realmCodeMap = {
+    "憤怒使者": "wrathbringer",
+    "暗影之月": "shadowmoon",
+    "銀翼要塞": "silverwing-hold",
+    "日落沼澤": "sundown-marsh",
+    "巨龍之喉": "dragonmaw",
+    "阿薩斯": "arthas",
+    "血之谷": "bleeding-hollow",
+    "冰風崗哨": "chillwind-point",
+    "水晶之刺": "crystalpine-stinger",
+    "屠魔山谷": "demon-fall-canyon",
+    "狂熱之刃": "zealot-blade",
+    "克羅之刃": "krol-blade",
+    "老馬布蘭契": "old-blanchy",
+    "地獄吼": "hellscream",
+    "寒冰皇冠": "icecrown",
+    "冰霜之刺": "frostmane",
+    "米奈希爾": "menethil",
+    "尖石": "spirestone",
+    "雷鱗": "stormscale",
+    "夜空之歌": "nightsong",
+    "亞雷戈斯": "arygos",
+    "眾星之子": "queldorei",
+    "語風": "whisperwind",
+    "世界之樹": "world-tree",
+    "雲蛟衛": "order-of-the-cloud-serpent",
+    "天空之牆": "skywall",
+    "聖光之願": "lights-hope"
+};
+        const specialPlayerNames = new Set(characterClasses.map(player => player.full_name.normalize('NFC').toLowerCase()));
+        function normalizePlayerName(fullName) {
+            const name = fullName.trim().replace(/-KR$/i, '').normalize('NFC');
+            const separator = name.indexOf('-');
+            if (separator < 1) { return null; }
+            const character = name.slice(0, separator);
+            const realm = name.slice(separator + 1);
+            const code = realmCodeMap[realm] || (Object.values(realmCodeMap).includes(realm.toLowerCase()) ? realm.toLowerCase() : null);
+            return code ? (character + '-' + code).toLowerCase() : null;
+        }
+        function matchSpecialPlayers(rounds) {
+            const uniquePlayers = new Map(), matched = [], unknown = [];
+            for (const round of rounds) {
+                for (const player of round.stats) { if (!uniquePlayers.has(player.guid)) { uniquePlayers.set(player.guid, player); } }
+            }
+            for (const player of uniquePlayers.values()) {
+                const normalized = normalizePlayerName(player.name);
+                const displayName = player.name.replace(/-KR$/i, '');
+                if (!normalized) { unknown.push(displayName); }
+                else if (specialPlayerNames.has(normalized)) { matched.push(displayName); }
+            }
+            return { matched: matched, unknown: unknown };
+        }
+        function findHighestLossPlayers(rounds) {
+            const losses = new Map();
+            for (const round of rounds) {
+                const teams = round.teams || {};
+                const members = Object.entries(teams);
+                if (round.reason !== '首次玩家死亡' || !/Solo Shuffle/i.test(round.mode) ||
+                    members.length !== 6 || members.filter(([, team]) => team === '0').length !== 3 ||
+                    members.filter(([, team]) => team === '1').length !== 3 || !Object.hasOwn(teams, round.deathGuid)) {
+                    return { complete: false, players: [], maximum: 0 };
+                }
+                const losingTeam = teams[round.deathGuid];
+                for (const [guid, team] of members) {
+                    if (!losses.has(guid)) {
+                        const player = round.stats.find(stat => stat.guid === guid);
+                        if (!player) { return { complete: false, players: [], maximum: 0 }; }
+                        losses.set(guid, { name: player.name, losses: 0 });
+                    }
+                    if (team === losingTeam) { losses.get(guid).losses++; }
+                }
+            }
+            const maximum = Math.max(0, ...Array.from(losses.values(), player => player.losses));
+            const players = Array.from(losses.values()).filter(function (player) {
+                const normalized = normalizePlayerName(player.name);
+                return player.losses === maximum && maximum >= 5 && normalized && !specialPlayerNames.has(normalized);
+            });
+            return { complete: true, players: players, maximum: maximum };
+        }
+        function formatReportPlayer(fullName) {
+            const normalized = normalizePlayerName(fullName);
+            if (!normalized) { return fullName.replace(/-KR$/i, ''); }
+            const character = fullName.slice(0, fullName.indexOf('-'));
+            const realm = normalized.slice(normalized.indexOf('-') + 1).split('-')
+                .map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+            return character + '-' + realm;
+        }
+        function render(data) {
+            const maps = [...new Set(data.rounds.map(round => round.map + '（' + round.mapId + '）'))];
+            const players = new Set(data.rounds.flatMap(round => round.stats.map(stat => stat.guid)));
+            for (const [label, value] of [['地圖', maps.join('、')], ['回合數', data.rounds.length], ['玩家數', players.size]]) {
+                const item = node('div'); item.append(node('span', label, 'muted'), node('strong', value)); overview.append(item);
+            }
+            overview.hidden = false;
+            document.getElementById('warnings').textContent = data.warnings.join('\n');
+            const timeline = node('section');
+            const specialPlayers = matchSpecialPlayers(data.rounds);
+            const reportedNames = specialPlayers.matched.map(function (fullName) {
+                const normalized = normalizePlayerName(fullName);
+                if (!normalized) { return fullName; }
+                const character = fullName.slice(0, fullName.indexOf('-'));
+                const realm = normalized.slice(normalized.indexOf('-') + 1).split('-')
+                    .map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+                return character + '-' + realm;
+            }).join('、');
+            const lossAnalysis = findHighestLossPlayers(data.rounds);
+            const firstRound = data.rounds[0], lastRound = data.rounds[data.rounds.length - 1];
+            const dateTime = value => value ? value.replace(/\.\d+$/, '') : '未記錄';
+            const timeOnly = value => value ? (value.match(/\d{2}:\d{2}:\d{2}/) || ['未記錄'])[0] : '未記錄';
+            const matchDate = firstRound.start.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})\s/);
+            const subjectDate = matchDate ? ' (' + matchDate[3] + '/' + matchDate[1].padStart(2, '0') + '/' + matchDate[2].padStart(2, '0') + ')' : '';
+            const paragraphs = [
+                '⭐⭐信件標題⭐⭐\n' + '[TW region] solo shuffle griefing and intentional throwing' + subjectDate + '\n\n',
+                '⭐⭐信件內容⭐⭐\n',
+                '※ Regions:\n' + 'TW region (Taiwan region)',
+                '※ Reporting Period:\n' + dateTime(firstRound.start) + ' ~ ' + dateTime(lastRound.end) + ' (GMT+8)',
+                '※ Arena type:\nSolo shuffle',
+                '※ Arena map:\n' + [...new Set(data.rounds.map(round => round.map))].join('、'),
+                '※ Reported Players:\n' + (reportedNames ? reportedNames.split('、').join('\n') : '無符合名單的玩家')
+            ];
+            if (specialPlayers.matched.length) {
+                const names = reportedNames.split('、');
+                const englishNames = names.length > 2 ? names.slice(0, -1).join(', ') + ', and ' + names[names.length - 1] : names.join(' and ');
+                paragraphs.push('※ Description\nI am submitting a report regarding suspicious behavior by ' + englishNames + '.\n\nThese players appear to be intentionally throwing games by deliberately withholding major cooldowns and defensives during critical moments. Despite having been penalized in the past and repeatedly reported by multiple players through the reporting system, they continue to maliciously sabotage gameplay.');
+                for (const player of lossAnalysis.players) {
+                    paragraphs[paragraphs.length - 1] += '\n\nFurthermore, it is clearly evident that the reported players are deliberately manipulating match outcomes to inflate the total number of losses for ' + formatReportPlayer(player.name) + ". This constitutes targeted griefing and a malicious attempt to ruin that player's overall gaming experience.";
+                }
+            } else {
+                paragraphs.push('※ Extra Description\n無符合名單的玩家，不產生檢舉描述。');
+            }
+            if (!lossAnalysis.complete) {
+                timeline.append(node('p', '部分回合缺少完整隊伍或勝負資料，未產生最高敗場相關描述。', 'muted'));
+            }
+            const roundLines = data.rounds.map(function (round, index) {
+                const death = round.death ? round.death.replace(/-KR$/i, '') : '未記錄';
+                const duration = Number.isFinite(round.duration) ? Math.floor(round.duration) + ' seconds' : '無法計算';
+                return 'Round ' + (index + 1) + '，' + timeOnly(round.start) + ' ~ ' + timeOnly(round.end) + ', Player Eliminated：' + death + '，total time：' + duration;
+            });
+            paragraphs.push('※ Round information\n' + roundLines.join('\n'));
+            for (const paragraph of paragraphs) {
+                const text = node('p', paragraph); text.style.whiteSpace = 'pre-line'; timeline.append(text);
+            }
+            if (specialPlayers.matched.length) {
+                
+            }
+            if (specialPlayers.unknown.length) {
+                timeline.append(node('p', '以下玩家的伺服器無法轉換，未完成比對：' + specialPlayers.unknown.join('、') + '。'));
+            }
+            data.rounds.forEach(function (round, index) {
+                if (/缺少/.test(round.reason)) {
+                    timeline.append(node('p', 'Round ' + (index + 1) + '：' + round.reason + '，時間包含截斷區間。'));
+                }
+            });
+            results.append(timeline);
+
+        }
+        cancel.addEventListener('click', function () { stop(); status.textContent = '已取消，可重新選取檔案。'; fileInput.value = ''; });
+        fileInput.addEventListener('change', function () {
+            stop(); results.replaceChildren(); overview.replaceChildren(); overview.hidden = true; document.getElementById('warnings').textContent = ''; progress.value = 0;
+            const file = fileInput.files[0]; if (!file) { status.textContent = '尚未選取檔案。'; return; }
+            status.textContent = '正在解析 ' + file.name + '（' + (file.size / 1048576).toFixed(1) + ' MB）…';
+            try {
+                const url = URL.createObjectURL(new Blob(['(' + combatWorker.toString() + ')();'], { type: 'text/javascript' }));
+                try { worker = new Worker(url); } finally { URL.revokeObjectURL(url); }
+                cancel.disabled = false;
+                worker.onmessage = function (event) {
+                    const data = event.data;
+                    if (data.type === 'progress') { progress.value = data.value; return; }
+                    stop(); fileInput.value = '';
+                    if (data.type === 'error') { status.textContent = '解析失敗：' + data.message; return; }
+                    progress.value = 100; render(data); status.textContent = file.name + '｜分析完成，共 ' + data.lines.toLocaleString('en-US') + ' 行、' + data.rounds.length + ' 個回合。';
+                };
+                worker.onerror = function () { stop(); fileInput.value = ''; status.textContent = '解析工作無法執行，請使用新版 Edge 或 Chrome 開啟此 HTML。'; };
+                worker.postMessage(file);
+            } catch (error) { stop(); fileInput.value = ''; status.textContent = '無法啟動解析：' + error.message; }
+        });
+    </script>
+</body>
+</html>
