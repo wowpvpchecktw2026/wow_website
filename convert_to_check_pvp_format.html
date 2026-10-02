@@ -575,12 +575,60 @@
             {"full_name":"自己人別防守-whisperwind","class":"priest"},
             {"full_name":"大腳老李-silverwing-hold","class":"monk"},
             {"full_name":"Senang-whisperwind","class":"druid"},
+            {"full_name":"哥一斯一拉-shadowmoon","class":"evoker"},
+            {"full_name":"姚一明一哥-shadowmoon","class":"rogue"},
             {"full_name":"叫豪哥-nightsong","class":"druid"},
-            {"full_name":"Miudo-queldorei","class":"shaman"}
+            {"full_name":"Miudo-queldorei","class":"shaman"},
+            {"full_name":"牛末-lights-hope","class":"paladin"},
+            {"full_name":"大乃妹-menethil","class":"monk"},
+            {"full_name":"騎豬豬看日出-whisperwind","class":"rogue"},
+            {"full_name":"大一屍一兄-shadowmoon","class":"death-knight"},
+            {"full_name":"閃一電一俠-shadowmoon","class":"shaman"},
+            {"full_name":"酷一老一爹-shadowmoon","class":"hunter"},
+            {"full_name":"心懷買龍嗎-world-tree","class":"warrior"}
         ];
         const characterClassMap = new Map(characterClasses.map(character => [character.full_name, character.class]));
         const characterColors = new Map();
         const lastUpdatedHours = Math.floor(Math.random() * 5) + 5;
+
+        const realmCodeMap = {
+            '憤怒使者': 'wrathbringer',
+            '暗影之月': 'shadowmoon',
+            '銀翼要塞': 'silverwing-hold',
+            '日落沼澤': 'sundown-marsh',
+            '巨龍之喉': 'dragonmaw',
+            '阿薩斯': 'arthas',
+            '血之谷': 'bleeding-hollow',
+            '冰風崗哨': 'chillwind-point',
+            '水晶之刺': 'crystalpine-stinger',
+            '屠魔山谷': 'demon-fall-canyon',
+            '狂熱之刃': 'zealot-blade',
+            '克羅之刃': 'krol-blade',
+            '老馬布蘭契': 'old-blanchy',
+            '地獄吼': 'hellscream',
+            '寒冰皇冠': 'icecrown',
+            '冰霜之刺': 'frostmane',
+            '米奈希爾': 'menethil',
+            '尖石': 'spirestone',
+            '雷鱗': 'stormscale',
+            '夜空之歌': 'nightsong',
+            '亞雷戈斯': 'arygos',
+            '眾星之子': 'queldorei',
+            '語風': 'whisperwind',
+            '世界之樹': 'world-tree',
+            '雲蛟衛': 'order-of-the-cloud-serpent',
+            '天空之牆': 'skywall',
+            '聖光之願': 'lights-hope'
+        };
+
+        function normalizeCharacterRealm(character) {
+            const separator = character.indexOf('-');
+            if (separator === -1) return character;
+            const name = character.slice(0, separator);
+            const realm = character.slice(separator + 1).trim();
+            if (!Object.hasOwn(realmCodeMap, realm)) return character;
+            return name + '-' + realmCodeMap[realm];
+        }
 
         function parseActivities(text) {
             const rows = [];
@@ -592,7 +640,7 @@
                     invalidLines.push(index + 1);
                     return;
                 }
-                rows.push({ rating: match[1], character: match[2].trim(), change: Number(match[3]), wins: match[4], losses: match[5] });
+                rows.push({ rating: match[1], character: normalizeCharacterRealm(match[2].trim()), change: Number(match[3]), wins: match[4], losses: match[5] });
             });
             return { rows, invalidLines };
         }
