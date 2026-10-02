@@ -2207,6 +2207,7 @@
                 '※ Reporting Period:\n' + dateTime(firstRound.start) + ' ~ ' + dateTime(lastRound.end) + ' (GMT+8)',
                 '※ Arena type:\nSolo shuffle',
                 '※ Arena map:\n' + [...new Set(data.rounds.map(round => round.map))].join('、'),
+                '※ Attachment:\n' + "Please refer to the attached file. It contains the WoW combat logs with the battle records I would like to report.",
                 '※ Reported Players:\n' + (reportedNames ? reportedNames.split('、').join('\n') : '無符合名單的玩家')
             ];
             if (specialPlayers.matched.length) {
