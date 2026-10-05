@@ -12,6 +12,8 @@
         p { margin: 8px 0; } .muted, small { color: #a7aeb6; }
         .panel, .round { background: #191919; border: 1px solid #303035; border-radius: 8px; padding: 20px; margin: 20px 0; }
         input { max-width: 100%; } input::file-selector-button, button { background: #2971cb; border: 0; border-radius: 5px; padding: 10px 16px; color: #fff; cursor: pointer; margin-right: 12px; }
+        .gmail-button { background: #c62828; padding: 18px 30px; font-size: 20px; font-weight: 700; line-height: 1.5; max-width: 100%; margin-bottom: 16px; }
+        .gmail-button:hover { background: #a61f1f; }
         button:disabled { opacity: .5; cursor: default; } :focus-visible { outline: 2px solid #83bfff; outline-offset: 3px; }
         progress { width: 100%; height: 10px; accent-color: #2971cb; }
         .summary { display: flex; flex-wrap: wrap; gap: 16px 40px; } .summary strong { display: block; font-size: 24px; }
@@ -300,16 +302,16 @@
             const timeOnly = value => value ? (value.match(/\d{2}:\d{2}:\d{2}/) || ['未記錄'])[0] : '未記錄';
             const matchDate = firstRound.start.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})\s/);
             const subjectDate = matchDate ? ' (' + matchDate[3] + '/' + matchDate[1].padStart(2, '0') + '/' + matchDate[2].padStart(2, '0') + ')' : '';
+            const emailTitle = '[TW region] solo shuffle griefing and intentional throwing' + subjectDate;
             const paragraphs = [
                 '⭐收件信箱⭐\n' + 'hacks@blizzard.com' + '\n\n',
-                '⭐信件標題⭐\n' + '[TW region] solo shuffle griefing and intentional throwing' + subjectDate + '\n\n',
-                '⭐注意事項⭐\n' + '寄信記得附檔 combatlog 檔案' + '\n\n',
+                '⭐信件標題⭐\n' + emailTitle + '\n\n',
                 '⭐信件內容⭐\n',
                 '※ Regions:\n' + 'TW region (Taiwan region)',
                 '※ Reporting Period:\n' + dateTime(firstRound.start) + ' ~ ' + dateTime(lastRound.end) + ' (GMT+8)',
                 '※ Arena type:\nSolo shuffle',
                 '※ Arena map:\n' + [...new Set(data.rounds.map(round => round.map))].join('、'),
-                '※ Attachment:\n' + "Please refer to the attached file. It contains the WoW combat logs with the battle records I would like to report.",
+                '※ Attachment:\n' + "⭐🔥💀此區塊請移除，請記得附檔combatlog🔥💀⭐\nPlease refer to the attached file. It contains the WoW combat logs with the battle records I would like to report.",
                 '※ Reported Players:\n' + (reportedNames ? reportedNames.split('、').join('\n') : '無符合名單的玩家')
             ];
             if (specialPlayers.matched.length) {
@@ -331,6 +333,21 @@
                 return 'Round ' + (index + 1) + '，' + timeOnly(round.start) + ' ~ ' + timeOnly(round.end) + ', Player Eliminated：' + death + '，total time：' + duration;
             });
             paragraphs.push('※ Round information\n' + roundLines.join('\n'));
+            function openGmail() {
+                const contentIndex = paragraphs.findIndex(paragraph => paragraph.trim() === '⭐信件內容⭐');
+                const parameters = new URLSearchParams({
+                    view: 'cm',
+                    fs: '1',
+                    to: 'hacks@blizzard.com',
+                    su: emailTitle,
+                    body: paragraphs.slice(contentIndex + 1).join('\n\n')
+                });
+                window.open('https://mail.google.com/mail/?' + parameters.toString(), '_blank', 'noopener,noreferrer');
+            }
+            const gmailButton = node('button', '👆點擊此 開啟Gmail並自動填入文字', 'gmail-button');
+            gmailButton.type = 'button';
+            gmailButton.addEventListener('click', openGmail);
+            timeline.prepend(gmailButton);
             for (const paragraph of paragraphs) {
                 const text = node('p', paragraph); text.style.whiteSpace = 'pre-line'; timeline.append(text);
             }
