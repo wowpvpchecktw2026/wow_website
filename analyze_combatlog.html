@@ -278,6 +278,48 @@
                 .map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
             return character + '-' + (realm === 'Queldorei' ? "Quel'dorei" : realm);
         }
+        function buildEmailTitle(subjectDate) {
+            const titles = [
+                '[TW region] solo shuffle griefing and intentional throwing',
+                '[TW region] report of suspected intentional throwing in solo shuffle',
+                '[TW region] suspected griefing and match manipulation in solo shuffle',
+                '[TW region] request to investigate disruptive behavior in solo',
+                '[TW region] solo shuffle report: suspected deliberate losses and griefing',
+                '[TW region] request for review of suspected solo shuffle griefing',
+                '[TW region] suspicious player conduct and throwing in solo shuffle',
+                '[TW region] solo shuffle integrity concern: suspected intentional losses',
+                '[TW region] please review possible targeted griefing - solo shuffle',
+                '[TW region] combat log report of solo shuffle griefing and throwing'
+            ];
+            return titles[Math.floor(Math.random() * titles.length)] + subjectDate;
+        }
+        function buildReportDescription(reportedNames, lossPlayers) {
+            const names = reportedNames.split('、');
+            const englishNames = names.length > 2 ? names.slice(0, -1).join(', ') + ', and ' + names[names.length - 1] : names.join(' and ');
+            const templates = [
+                {
+                    introduction: 'I am submitting a report regarding suspicious behavior by ',
+                    description: 'These players appear to be intentionally throwing games by deliberately withholding major cooldowns and defensives during critical moments. Despite having been penalized in the past and repeatedly reported by multiple players through the reporting system, they continue to maliciously sabotage gameplay.',
+                    targeted: name => 'Furthermore, it is clearly evident that the reported players are deliberately manipulating match outcomes to inflate the total number of losses for ' + name + ". This constitutes targeted griefing and a malicious attempt to ruin that player's overall gaming experience."
+                },
+                {
+                    introduction: 'I would like to report suspected intentional throwing involving ',
+                    description: 'Their behavior suggests that they are deliberately losing games by refusing to use important offensive cooldowns and defensive abilities at decisive moments. These players have previously received penalties and have been reported repeatedly by multiple players through the reporting system, yet they continue to disrupt matches maliciously.',
+                    targeted: name => 'In addition, the reported players appear to be manipulating the results specifically to increase the number of losses suffered by ' + name + '. I believe this is targeted griefing intended to damage this player\'s gaming experience.'
+                },
+                {
+                    introduction: 'Please investigate suspicious match behavior involving ',
+                    description: 'I suspect these players are intentionally throwing matches by withholding major cooldowns and defensive abilities when they are most needed. Previous penalties and repeated reports from multiple players through the reporting system have not stopped their continued malicious disruption of gameplay.',
+                    targeted: name => 'I am also concerned that these players are deliberately influencing match outcomes to cause additional losses for ' + name + '. This appears to be targeted griefing aimed at ruining this player\'s overall experience.'
+                }
+            ];
+            const template = templates[Math.floor(Math.random() * templates.length)];
+            let description = '※ Description\n' + template.introduction + englishNames + '.\n\n' + template.description;
+            for (const player of lossPlayers) {
+                description += '\n\n' + template.targeted(formatReportPlayer(player.name));
+            }
+            return description;
+        }
         function render(data) {
             const maps = [...new Set(data.rounds.map(round => round.map + '（' + round.mapId + '）'))];
             const players = new Set(data.rounds.flatMap(round => round.stats.map(stat => stat.guid)));
@@ -302,7 +344,9 @@
             const timeOnly = value => value ? (value.match(/\d{2}:\d{2}:\d{2}/) || ['未記錄'])[0] : '未記錄';
             const matchDate = firstRound.start.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})\s/);
             const subjectDate = matchDate ? ' (' + matchDate[3] + '/' + matchDate[1].padStart(2, '0') + '/' + matchDate[2].padStart(2, '0') + ')' : '';
-            const emailTitle = '[TW region] solo shuffle griefing and intentional throwing' + subjectDate;
+            const emailTitle = buildEmailTitle(subjectDate);
+            const warningMsg = '⭐🔥💀此區塊請移除，寄信記得附檔combatlog🔥💀⭐\n⭐🔥💀此區塊請移除，寄信記得附檔combatlog🔥💀⭐\n⭐🔥💀此區塊請移除，寄信記得附檔combatlog🔥💀⭐\n';
+
             const paragraphs = [
                 '⭐收件信箱⭐\n' + 'hacks@blizzard.com' + '\n\n',
                 '⭐信件標題⭐\n' + emailTitle + '\n\n',
@@ -311,16 +355,11 @@
                 '※ Reporting Period:\n' + dateTime(firstRound.start) + ' ~ ' + dateTime(lastRound.end) + ' (GMT+8)',
                 '※ Arena type:\nSolo shuffle',
                 '※ Arena map:\n' + [...new Set(data.rounds.map(round => round.map))].join('、'),
-                '※ Attachment:\n' + "⭐🔥💀此區塊請移除，請記得附檔combatlog🔥💀⭐\nPlease refer to the attached file. It contains the WoW combat logs with the battle records I would like to report.",
+                '※ Attachment:\n' + warningMsg + "Please refer to the attached file. It contains the WoW combat logs with the battle records I would like to report.",
                 '※ Reported Players:\n' + (reportedNames ? reportedNames.split('、').join('\n') : '無符合名單的玩家')
             ];
             if (specialPlayers.matched.length) {
-                const names = reportedNames.split('、');
-                const englishNames = names.length > 2 ? names.slice(0, -1).join(', ') + ', and ' + names[names.length - 1] : names.join(' and ');
-                paragraphs.push('※ Description\nI am submitting a report regarding suspicious behavior by ' + englishNames + '.\n\nThese players appear to be intentionally throwing games by deliberately withholding major cooldowns and defensives during critical moments. Despite having been penalized in the past and repeatedly reported by multiple players through the reporting system, they continue to maliciously sabotage gameplay.');
-                for (const player of lossAnalysis.players) {
-                    paragraphs[paragraphs.length - 1] += '\n\nFurthermore, it is clearly evident that the reported players are deliberately manipulating match outcomes to inflate the total number of losses for ' + formatReportPlayer(player.name) + ". This constitutes targeted griefing and a malicious attempt to ruin that player's overall gaming experience.";
-                }
+                paragraphs.push(buildReportDescription(reportedNames, lossAnalysis.players));
             } else {
                 paragraphs.push('※ Extra Description\n無符合名單的玩家，不產生檢舉描述。');
             }
