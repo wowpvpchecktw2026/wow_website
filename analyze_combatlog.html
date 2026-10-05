@@ -439,7 +439,7 @@
                 for (const player of characterClasses) { specialPlayerNames.add(player.full_name.trim().normalize('NFC').toLowerCase()); }
                 playersListLoaded = true;
                 fileInput.disabled = false;
-                status.textContent = '已載入 ' + characterClasses.length.toLocaleString('en-US') + ' 筆特殊玩家名單，請選取 log 檔案。';
+                status.textContent = '請選取 log 檔案。';
             } catch (error) {
                 fileInput.disabled = true;
                 status.textContent = '特殊玩家名單載入失敗：' + (error.name === 'AbortError' ? '連線逾時' : error.message) + '。請確認網路後重新整理頁面。';
