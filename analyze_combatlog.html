@@ -345,8 +345,9 @@
             const matchDate = firstRound.start.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})\s/);
             const subjectDate = matchDate ? ' (' + matchDate[3] + '/' + matchDate[1].padStart(2, '0') + '/' + matchDate[2].padStart(2, '0') + ')' : '';
             const emailTitle = buildEmailTitle(subjectDate);
-            const warningMsg = '⭐🔥💀此區塊請修改移除🔥💀⭐\n⭐🔥💀此區塊請修改移除🔥💀⭐\n⭐🔥💀此區塊請修改移除🔥💀⭐🔥💀⭐\n' + 
-             '⭐🔥💀請記得附檔，或不附檔加入這段描述: The combatlog file is too large. i can only provide description.🔥💀⭐';
+            const warningMsg = '⭐🔥💀此區塊請修改移除🔥💀⭐\n' + 
+             '⭐🔥💀選擇1：若你要附檔、請記得附檔、並加入這段描述: Please refer to the attached file. It contains the WoW combat logs with the battle records I would like to report.　\n' +              
+             '⭐🔥💀選擇2：若你不附檔、並加入這段描述: The combatlog file is too large. i can only provide description.\n';
 
             const paragraphs = [
                 '⭐收件信箱⭐\n' + 'hacks@blizzard.com' + '\n\n',
@@ -356,7 +357,7 @@
                 '※ Reporting Period:\n' + dateTime(firstRound.start) + ' ~ ' + dateTime(lastRound.end) + ' (GMT+8)',
                 '※ Arena type:\nSolo shuffle',
                 '※ Arena map:\n' + [...new Set(data.rounds.map(round => round.map))].join('、'),
-                '※ Attachment:\n' + warningMsg + "Please refer to the attached file. It contains the WoW combat logs with the battle records I would like to report.",
+                '※ Attachment:\n' + warningMsg + "",
                 '※ Reported Players:\n' + (reportedNames ? reportedNames.split('、').join('\n') : '無符合名單的玩家')
             ];
             if (specialPlayers.matched.length) {
