@@ -286,7 +286,7 @@
                 '[Solo / TW region] request to investigate disruptive behavior in solo',
                 '[TW region solo shuffle] report: suspected deliberate losses and griefing',
                 '[TW region | Solo] request for review of suspected solo shuffle griefing',
-                '[TW region] suspicious player conduct and throwing in solo shuffle',
+                '[TW region] suspicious player conduct and throwing by combatlog',
                 '[Solo shuffle | TW region] integrity concern: suspected intentional losses',
                 '[TW region & Solo shuffle] please review possible targeted griefing',
                 '[TW region] combat log report of solo shuffle griefing and throwing'
@@ -345,7 +345,8 @@
             const matchDate = firstRound.start.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})\s/);
             const subjectDate = matchDate ? ' (' + matchDate[3] + '/' + matchDate[1].padStart(2, '0') + '/' + matchDate[2].padStart(2, '0') + ')' : '';
             const emailTitle = buildEmailTitle(subjectDate);
-            const warningMsg = '⭐🔥💀此區塊請移除，寄信記得附檔combatlog🔥💀⭐\n⭐🔥💀此區塊請移除，寄信記得附檔combatlog🔥💀⭐\n⭐🔥💀此區塊請移除，寄信記得附檔combatlog🔥💀⭐\n';
+            const warningMsg = '⭐🔥💀此區塊請修改移除🔥💀⭐\n⭐🔥💀此區塊請修改移除🔥💀⭐\n⭐🔥💀此區塊請修改移除🔥💀⭐🔥💀⭐\n' + 
+             '⭐🔥💀請記得附檔，或不附檔加入這段描述: The combatlog file is too large. i can only provide description.🔥💀⭐';
 
             const paragraphs = [
                 '⭐收件信箱⭐\n' + 'hacks@blizzard.com' + '\n\n',
