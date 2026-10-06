@@ -19,7 +19,12 @@
         #status { line-height: 1.7; }
         #status.error { color: #b42318; }
         details { margin: 16px 0; border: 1px solid #d8dee8; border-radius: 10px; background: white; overflow: hidden; }
-        summary { padding: 18px 20px; font-weight: bold; cursor: pointer; overflow-wrap: anywhere; }
+        summary { display: flex; align-items: center; gap: 12px; padding: 18px 20px; font-weight: bold; cursor: pointer; overflow-wrap: anywhere; list-style: none; }
+        summary::-webkit-details-marker { display: none; }
+        summary::before { content: ""; flex-shrink: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-left: 7px solid #243044; }
+        details[open] summary::before { transform: rotate(90deg); }
+        .summary-text { flex: 1; min-width: 0; }
+        .high-round-chip { margin-left: auto; flex-shrink: 0; padding: 4px 10px; border-radius: 5px; background: #b42318; color: white; font-size: 16px; line-height: 1.5; white-space: nowrap; }
         summary:hover { background: #edf3fc; }
         summary:focus-visible, button:focus-visible { outline: 2px solid #1769d2; outline-offset: -2px; }
         details[open] summary { border-bottom: 1px solid #d8dee8; }
@@ -39,13 +44,14 @@
         <h1>Solo Shuffle 信件投訴整理</h1>
         <h3>⚠️主要針對凌晨時段。有異常爬分或場次的紀錄。請求官方調查</h3>
         <h3>⚠️寄信只是請求官方調查。是否違規則是由官方去做認定 (不用擔心舉報錯路人)</h3>
+        <h3>⚠️嫌太多很麻煩，也可以挑幾個場次比較高的時段投訴</h3>
 
         <form id="characterForm" class="character-form">
             <input id="characterName" type="text" placeholder="輸入你角色名，第一人稱視角投訴" >
             <select id="characterRealm" aria-label="選擇伺服器">
                 <option value="">選擇伺服器</option>
             </select>
-            <button type="submit">修改完記得按SAVE</button>
+            <button type="submit">SAVE (修改完記得按)</button>
         </form>
         <p id="characterSaveStatus" role="status" aria-live="polite" hidden></p>
         <p id="status" role="status" aria-live="polite">正在載入資料…</p>
@@ -277,7 +283,16 @@ https://tw-wow-pvp.wow-pvp-check-tw.workers.dev
             items.forEach(function (item, index) {
                 const accordion = document.createElement("details");
                 const summary = document.createElement("summary");
-                summary.textContent = "第 " + (index + 1) + " 筆 — " + item.emailSuffix.replace(/[()]/g, "");
+                const summaryText = document.createElement("span");
+                summaryText.className = "summary-text";
+                summaryText.textContent = "第 " + (index + 1) + " 筆 — " + item.emailSuffix.replace(/[()]/g, "");
+                summary.append(summaryText);
+                if (item.MaxWinLossRound > 40) {
+                    const highRoundChip = document.createElement("span");
+                    highRoundChip.className = "high-round-chip";
+                    highRoundChip.textContent = "高場次";
+                    summary.append(highRoundChip);
+                }
                 const email = document.createElement("div");
                 email.className = "email";
                 const subject = subjectTemplates[Math.floor(Math.random() * subjectTemplates.length)] + " " + item.emailSuffix;
