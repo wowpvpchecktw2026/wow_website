@@ -11,7 +11,7 @@
         h1 { font-size: 26px; }
         .character-form { display: flex; gap: 8px; align-items: center; flex-wrap: nowrap; }
         .character-form input, .character-form select { min-width: 0; padding: 10px 12px; border: 1px solid #d8dee8; border-radius: 6px; font: inherit; }
-        .character-form input { width: 200px; max-width: 200px; }
+        .character-form input { width: 250px; max-width: 250px; }
         .character-form select { max-width: 160px; }
         .character-form button { flex-shrink: 0; }
         .character-form input:focus-visible, .character-form select:focus-visible { outline: 2px solid #1769d2; outline-offset: 2px; }
@@ -37,10 +37,11 @@
 <body>
     <main>
         <h1>Solo Shuffle 信件投訴整理</h1>
+        <h3>⚠️主要針對凌晨時段。有異常爬分或場次的紀錄。請求官方調查</h3>
         <h3>⚠️寄信只是請求官方調查。是否違規則是由官方去做認定 (不用擔心舉報錯路人)</h3>
 
         <form id="characterForm" class="character-form">
-            <input id="characterName" type="text" placeholder="輸入你的角色名稱作為投訴信內容" aria-label="輸入你的角色名稱作為投訴信內容">
+            <input id="characterName" type="text" placeholder="輸入你角色名第一人稱" aria-label="輸入你的角色名稱作為投訴信內容">
             <select id="characterRealm" aria-label="選擇伺服器">
                 <option value="">選擇伺服器</option>
             </select>
@@ -298,7 +299,7 @@ https://tw-wow-pvp.wow-pvp-check-tw.workers.dev
                 appendTextSection(email, "⭐信件標題⭐", subject);
                 appendTextSection(email, "⭐信件內容⭐", body);
                 const imageHint = document.createElement("p");
-                imageHint.style.marginTop = "20px";
+                imageHint.style.marginTop = "40px";
                 imageHint.textContent = "⭐建議此圖片 手動加入信件內容中 或 信件附檔中 (PrintScreen鍵 或  windows鍵 + shift + S)";
                 email.append(imageHint);
                 const image = document.createElement("img");
