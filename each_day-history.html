@@ -13,7 +13,7 @@
         .character-form input, .character-form select { min-width: 0; padding: 10px 12px; border: 1px solid #d8dee8; border-radius: 6px; font: inherit; }
         .character-form input { width: 250px; max-width: 250px; }
         .character-form select { max-width: 160px; }
-        .character-form button { flex-shrink: 0; }
+        .character-form button { flex-shrink: 0; background: #218838; }
         .character-form input:focus-visible, .character-form select:focus-visible { outline: 2px solid #1769d2; outline-offset: 2px; }
         #characterSaveStatus { color: #b42318; }
         #status { line-height: 1.7; }
@@ -35,6 +35,7 @@
         pre { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font: 15px/1.8 Consolas, "Microsoft JhengHei", sans-serif; }
         button { padding: 10px 18px; border: 0; border-radius: 6px; background: #1769d2; color: white; font: inherit; cursor: pointer; }
         .email > button { margin: 0 8px 8px 0; }
+        .participation-hint { color: #e67e22; }
         button:disabled { opacity: .6; cursor: wait; }
         @media (max-width: 600px) { main { margin: 24px auto; padding: 0 12px; } summary, .email { padding: 16px; } }
     </style>
@@ -299,17 +300,20 @@ https://tw-wow-pvp.wow-pvp-check-tw.workers.dev
                 const body = buildEmailBody(item);
                 const gmailButton = document.createElement("button");
                 gmailButton.type = "button";
-                gmailButton.textContent = "透過 Gmail 寄信";
+                gmailButton.textContent = "👆點擊此 開啟Gmail寄信";
                 gmailButton.addEventListener("click", function () {
                     openGmail(subject, body);
                 });
                 const outlookButton = document.createElement("button");
                 outlookButton.type = "button";
-                outlookButton.textContent = "透過 outkook 寄信";
+                outlookButton.textContent = "👆點擊此 開啟outkook寄信";
                 outlookButton.addEventListener("click", function () {
                     openOutlook(subject, body);
                 });
-                email.append(gmailButton, outlookButton);
+                const participationHint = document.createElement("span");
+                participationHint.className = "participation-hint";
+                participationHint.textContent = "歡迎大家響應一起寄信投訴 👍👍";
+                email.append(gmailButton, outlookButton, participationHint);
                 appendTextSection(email, "⭐收件信箱⭐", "hacks@blizzard.com");
                 appendTextSection(email, "⭐信件標題⭐", subject);
                 appendTextSection(email, "⭐信件內容⭐", body);
