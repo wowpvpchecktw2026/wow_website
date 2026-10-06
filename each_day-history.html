@@ -159,7 +159,25 @@
             "[TW／Solo Shuffle] Report of Possible Rating Farming and Match Coordination"
         ];
 
+        const reportingReasonTemplates = [
+            "Multiple players appear to be exploiting game mechanics and coordinating to manipulate Solo Shuffle ratings, potentially involving rating framing, win-trading, and real-money trading.",
+            "Several players are suspected of working together to abuse Solo Shuffle mechanics and influence ratings through coordinated matches, possible rating framing, win-trading, or RMT activity.",
+            "The reported activity raises concerns about possible coordination among players to manipulate Solo Shuffle ratings, including suspected rating framing, win-trading.",
+            "Some players appear to be coordinating their Solo Shuffle activity to gain unfair rating advantages, with possible involvement in rating framing, win-trading, and RMT-related arrangements.",
+            "I request a review of suspected coordinated abuse of Solo Shuffle mechanics, particularly possible rating manipulation, rating framing, win-trading."
+        ];
+
+        const conclusionTemplates = [
+            "Please review the listed characters’ Solo Shuffle activity during the reporting period, including queue records, lobby data, gameplay, equipment changes, account access, and interactions with associated accounts.",
+            "I respectfully request an investigation into the reported characters’ Solo Shuffle activity within the specified timeframe, covering queue history, lobby records, gameplay, equipment changes, account access, and interactions with linked accounts.",
+            "Please examine the relevant internal records for these characters during the stated period, including Solo Shuffle queues, lobby data, gameplay, equipment changes, account access, and interactions with related accounts.",
+            "I ask Blizzard to investigate the listed characters’ Solo Shuffle participation during the specified period by reviewing queue records, lobby information, gameplay, equipment changes, account access, and interactions with associated accounts.",
+            "Please assess the reported Solo Shuffle activity within the indicated timeframe, reviewing the listed characters’ queue records, lobby data, gameplay, equipment changes, account access, and interactions with connected accounts."
+        ];
+
         function buildEmailBody(item) {
+            const conclusion = conclusionTemplates[Math.floor(Math.random() * conclusionTemplates.length)];
+            const reportingReason = reportingReasonTemplates[Math.floor(Math.random() * reportingReasonTemplates.length)];
             const sperateSymbol = sperateSymbols[Math.floor(Math.random() * sperateSymbols.length)];
             return `${sperateSymbol} Regions:
 TW region (Taiwan region)
@@ -176,9 +194,8 @@ ${item.ReportPlayers}
 ${sperateSymbol} Desciption
 Hi, I am a player from the Taiwan region.${savedCharacterName ? "\nMy character is " + savedCharacterName + (savedRealmCode ? "-" + savedRealmCode : "") : ""}
 I am submitting this report to request an investigation into possible coordinated rating manipulation and gameplay sabotage in Solo Shuffle.
-The characters listed below showed activity during the specified reporting period.
+These characters have suspicious match record, rating farming during the specified reporting period.
 I respectfully request that Blizzard examine the relevant internal records to determine whether any of the following violations occurred:
-
 - Account sharing between multiple people
 - Some of these accounts have received 7-day bans, yet continue disruptive behavior in PvP
 - Intentional disruption and griefing in arenas
@@ -188,15 +205,14 @@ I respectfully request that Blizzard examine the relevant internal records to de
 
 
 ${sperateSymbol} Reason for Reporting:
-Multiple players appear to be abusing game mechanics and coordinating with one another to manipulate their Solo Shuffle ratings, rating framing, win-trading , possible RMT activity..
+${reportingReason}
 
-${sperateSymbol} Most of the characters originate from specific accounts.
-By cross-referencing their achievements, it can also be observed that most of these characters belong to specific Battle.net accounts.
-${item.RelateAccountFormat}
-
+${item.RelateAccountFormat.includes("#Account 1") ? `${sperateSymbol} Most of the characters originate from specific accounts.
+By cross-referencing their achievements, it can also be observed that most of these characters belong to specific Battle.net accounts.\n${item.RelateAccountFormat}
+` : ""}
 ${sperateSymbol} Supporting Evidence:
 *Data source 1 (by wow check pvp website)
-image url: (check pvp website screenshot)
+Screenshot image url:
 ${item.targetImagePath}
 
 *Data source 2 (Blizzard Developer API)
@@ -207,10 +223,10 @@ This API is updated every 3 hours. By comparing each update with historical reco
 and We also obtained screenshots and related information from the well-known website Check-PvP, providing two independent sources of supporting evidence.
 
 ${sperateSymbol} Conclusion:
-Please investigate the listed characters’ Solo Shuffle activity during the specified period, including queue records, lobby data, gameplay, equipment changes, account access, and interactions with associated accounts.
+${conclusion}
 
 ${sperateSymbol} Additional Reference:
-With a technical background, I compiled a list of multiple characters linked to same Battle.net account that have repeatedly exhibited abnormal rating activity. 
+With a technical player support, I compiled a list of multiple characters linked to same Battle.net account that have repeatedly exhibited abnormal rating activity. 
 I would like Blizzard to investigate these players. Please refer to the links below for supporting evidence.
 https://tw-wow-pvp.wow-pvp-check-tw.workers.dev
 `;
@@ -260,7 +276,7 @@ https://tw-wow-pvp.wow-pvp-check-tw.workers.dev
             items.forEach(function (item, index) {
                 const accordion = document.createElement("details");
                 const summary = document.createElement("summary");
-                summary.textContent = "第 " + (index + 1) + " 筆 — " + item.emailSuffix;
+                summary.textContent = "第 " + (index + 1) + " 筆 — " + item.emailSuffix.replace(/[()]/g, "");
                 const email = document.createElement("div");
                 email.className = "email";
                 const subject = subjectTemplates[Math.floor(Math.random() * subjectTemplates.length)] + " " + item.emailSuffix;
