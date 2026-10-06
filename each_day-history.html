@@ -33,6 +33,7 @@
         details[open] summary::before { transform: rotate(90deg); }
         .summary-text { flex: 1; min-width: 0; }
         .high-round-chip { margin-left: auto; flex-shrink: 0; padding: 4px 10px; border-radius: 5px; background: #b42318; color: white; font-size: 16px; line-height: 1.5; white-space: nowrap; }
+        .extreme-round-chip { background: #7b1fa2; }
         summary:hover { background: #edf3fc; }
         summary:focus-visible, button:focus-visible { outline: 2px solid #1769d2; outline-offset: -2px; }
         details[open] summary { border-bottom: 1px solid #d8dee8; }
@@ -305,10 +306,16 @@ https://tw-wow-pvp.wow-pvp-check-tw.workers.dev
                 summaryText.className = "summary-text";
                 summaryText.textContent = "第 " + (index + 1) + " 筆 — " + item.emailSuffix.replace(/[()]/g, "");
                 summary.append(summaryText);
-                if (item.MaxWinLossRound > 40) {
+                let roundLabel = "";
+                if (item.MaxWinLossRound > 70) {
+                    roundLabel = "極高場次";
+                } else if (item.MaxWinLossRound > 40) {
+                    roundLabel = "高場次";
+                }
+                if (roundLabel) {
                     const highRoundChip = document.createElement("span");
-                    highRoundChip.className = "high-round-chip";
-                    highRoundChip.textContent = "高場次";
+                    highRoundChip.className = item.MaxWinLossRound > 70 ? "high-round-chip extreme-round-chip" : "high-round-chip";
+                    highRoundChip.textContent = roundLabel;
                     summary.append(highRoundChip);
                 }
                 const email = document.createElement("div");
