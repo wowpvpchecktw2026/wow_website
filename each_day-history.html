@@ -323,9 +323,12 @@ https://tw-wow-pvp.wow-pvp-check-tw.workers.dev
                 email.append(imageHint);
                 const image = document.createElement("img");
                 image.className = "report-image";
-                image.src = item.targetImagePath;
                 image.alt = "Check-PvP 截圖 " + item.emailSuffix;
-                image.loading = "lazy";
+                accordion.addEventListener("toggle", function () {
+                    if (accordion.open && !image.hasAttribute("src")) {
+                        image.src = item.targetImagePath;
+                    }
+                });
                 const imageLink = document.createElement("a");
                 imageLink.href = item.targetImagePath;
                 imageLink.target = "_blank";
