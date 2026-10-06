@@ -9,9 +9,12 @@
         body { margin: 0; background: #f5f7fa; color: #243044; font-family: "Microsoft JhengHei", sans-serif; }
         main { max-width: 1000px; margin: 40px auto; padding: 0 20px; }
         h1 { font-size: 26px; }
-        .character-form { display: flex; gap: 8px; flex-wrap: wrap; }
-        .character-form input { flex: 1; min-width: 220px; padding: 10px 12px; border: 1px solid #d8dee8; border-radius: 6px; font: inherit; }
-        .character-form input:focus-visible { outline: 2px solid #1769d2; outline-offset: 2px; }
+        .character-form { display: flex; gap: 8px; align-items: center; flex-wrap: nowrap; }
+        .character-form input, .character-form select { min-width: 0; padding: 10px 12px; border: 1px solid #d8dee8; border-radius: 6px; font: inherit; }
+        .character-form input { width: 200px; max-width: 200px; }
+        .character-form select { max-width: 160px; }
+        .character-form button { flex-shrink: 0; }
+        .character-form input:focus-visible, .character-form select:focus-visible { outline: 2px solid #1769d2; outline-offset: 2px; }
         #characterSaveStatus { color: #b42318; }
         #status { line-height: 1.7; }
         #status.error { color: #b42318; }
@@ -34,8 +37,13 @@
 <body>
     <main>
         <h1>Solo Shuffle 信件投訴整理</h1>
+        <h3>⚠️寄信只是請求官方調查。是否違規則是由官方去做認定 (不用擔心舉報錯路人)</h3>
+
         <form id="characterForm" class="character-form">
             <input id="characterName" type="text" placeholder="輸入你的角色名稱作為投訴信內容" aria-label="輸入你的角色名稱作為投訴信內容">
+            <select id="characterRealm" aria-label="選擇伺服器">
+                <option value="">選擇伺服器</option>
+            </select>
             <button type="submit">save</button>
         </form>
         <p id="characterSaveStatus" role="status" aria-live="polite" hidden></p>
@@ -48,14 +56,54 @@
         const status = document.getElementById("status");
         const reports = document.getElementById("reports");
         const retry = document.getElementById("retry");
+        const realmCodeMap = {
+            '憤怒使者': 'wrathbringer',
+            '暗影之月': 'shadowmoon',
+            '銀翼要塞': 'silverwing-hold',
+            '日落沼澤': 'sundown-marsh',
+            '巨龍之喉': 'dragonmaw',
+            '阿薩斯': 'arthas',
+            '血之谷': 'bleeding-hollow',
+            '冰風崗哨': 'chillwind-point',
+            '水晶之刺': 'crystalpine-stinger',
+            '屠魔山谷': 'demon-fall-canyon',
+            '狂熱之刃': 'zealot-blade',
+            '克羅之刃': 'krol-blade',
+            '老馬布蘭契': 'old-blanchy',
+            '地獄吼': 'hellscream',
+            '寒冰皇冠': 'icecrown',
+            '冰霜之刺': 'frostmane',
+            '米奈希爾': 'menethil',
+            '尖石': 'spirestone',
+            '雷鱗': 'stormscale',
+            '夜空之歌': 'nightsong',
+            '亞雷戈斯': 'arygos',
+            '眾星之子': 'queldorei',
+            '語風': 'whisperwind',
+            '世界之樹': 'world-tree',
+            '雲蛟衛': 'order-of-the-cloud-serpent',
+            '天空之牆': 'skywall',
+            '聖光之願': 'lights-hope'
+        };
         const characterInput = document.getElementById("characterName");
+        const realmSelect = document.getElementById("characterRealm");
         const characterSaveStatus = document.getElementById("characterSaveStatus");
         const characterCookieName = "soloShuffleCharacterName";
-        const savedCharacterName = readCharacterName();
+        const realmCookieName = "soloShuffleCharacterRealm";
+        const savedCharacterName = readCookie(characterCookieName);
+        const realmCookieValue = readCookie(realmCookieName);
+        const savedRealmCode = Object.values(realmCodeMap).includes(realmCookieValue) ? realmCookieValue : "";
         characterInput.value = savedCharacterName;
+        Object.entries(realmCodeMap).forEach(function (entry) {
+            const option = document.createElement("option");
+            option.textContent = entry[0];
+            option.value = entry[1];
+            realmSelect.append(option);
+        });
+        realmSelect.value = savedRealmCode;
 
-        function readCharacterName() {
-            const prefix = characterCookieName + "=";
+        function readCookie(name) {
+            const prefix = name + "=";
             const cookie = document.cookie.split(";").map(function (value) {
                 return value.trim();
             }).find(function (value) {
@@ -71,14 +119,25 @@
             }
         }
 
+        function saveCookie(name, value) {
+            const maxAge = value ? 31536000 : 0;
+            document.cookie = name + "=" + encodeURIComponent(value) +
+                "; Max-Age=" + maxAge + "; Path=/; SameSite=Lax";
+        }
+
         document.getElementById("characterForm").addEventListener("submit", function (event) {
             event.preventDefault();
             const characterName = characterInput.value.trim();
-            const maxAge = characterName ? 31536000 : 0;
-            document.cookie = characterCookieName + "=" + encodeURIComponent(characterName) +
-                "; Max-Age=" + maxAge + "; Path=/; SameSite=Lax";
-            if (readCharacterName() !== characterName) {
-                characterSaveStatus.textContent = "角色名稱儲存失敗，請確認瀏覽器允許 cookie，並透過 HTTP 或 HTTPS 開啟頁面。";
+            const realmCode = realmSelect.value;
+            if (characterName && !Object.values(realmCodeMap).includes(realmCode)) {
+                characterSaveStatus.textContent = "請選擇伺服器。";
+                characterSaveStatus.hidden = false;
+                return;
+            }
+            saveCookie(characterCookieName, characterName);
+            saveCookie(realmCookieName, realmCode);
+            if (readCookie(characterCookieName) !== characterName || readCookie(realmCookieName) !== realmCode) {
+                characterSaveStatus.textContent = "角色名稱或伺服器儲存失敗，請確認瀏覽器允許 cookie，並透過 HTTP 或 HTTPS 開啟頁面。";
                 characterSaveStatus.hidden = false;
                 return;
             }
@@ -115,7 +174,7 @@ ${sperateSymbol} Reported Players:
 ${item.ReportPlayers}
 
 ${sperateSymbol} Desciption
-Hi, I am a player from the Taiwan region.${savedCharacterName ? "\nMy character is " + savedCharacterName : ""}
+Hi, I am a player from the Taiwan region.${savedCharacterName ? "\nMy character is " + savedCharacterName + (savedRealmCode ? "-" + savedRealmCode : "") : ""}
 I am submitting this report to request an investigation into possible coordinated rating manipulation and gameplay sabotage in Solo Shuffle.
 The characters listed below showed activity during the specified reporting period.
 I respectfully request that Blizzard examine the relevant internal records to determine whether any of the following violations occurred:
@@ -223,6 +282,7 @@ https://tw-wow-pvp.wow-pvp-check-tw.workers.dev
                 appendTextSection(email, "⭐信件標題⭐", subject);
                 appendTextSection(email, "⭐信件內容⭐", body);
                 const imageHint = document.createElement("p");
+                imageHint.style.marginTop = "20px";
                 imageHint.textContent = "⭐建議此圖片 手動加入信件內容中 或 信件附檔中 (PrintScreen鍵 或  windows鍵 + shift + S)";
                 email.append(imageHint);
                 const image = document.createElement("img");
