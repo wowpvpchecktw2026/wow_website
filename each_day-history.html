@@ -54,6 +54,9 @@
         .email > button { margin: 0 8px 8px 0; }
         .copy-body-button { background: #ffca28; color: #243044; }
         .participation-hint { color: #e67e22; }
+        .reference-links { margin-top: 40px; padding-top: 20px; border-top: 1px solid #d8dee8; }
+        .reference-links p { margin: 20px 0; line-height: 1.8; overflow-wrap: anywhere; }
+        .reference-links a { color: #1769d2; }
         button:disabled { opacity: .6; cursor: wait; }
         @media (max-width: 600px) { main { margin: 24px auto; padding: 0 12px; } summary, .email { padding: 16px; } }
     </style>
@@ -93,6 +96,25 @@
         </div>
         <button id="retry" type="button" hidden>重新載入</button>
         <section id="reports" aria-label="檢舉信件列表" aria-busy="true"></section>
+        <section class="reference-links" aria-labelledby="reference-title">
+            <h1 id="reference-title">🔗參考連結</h1>
+            <p>
+                台服常見異常玩家名單<br>
+                <a href="https://tw-wow-pvp.wow-pvp-check-tw.workers.dev/" target="_blank" rel="noopener noreferrer">https://tw-wow-pvp.wow-pvp-check-tw.workers.dev/</a>
+            </p>
+            <p>
+                <strong>2026/6/22 台服SOLO脫裝送頭 ※影片角色: 這把你輸、都你滴毛(H鳥)、黎妃爾(六眼飛魚)</strong><br>
+                <a href="https://www.youtube.com/watch?v=bomQtBEYLTs" target="_blank" rel="noopener noreferrer">https://www.youtube.com/watch?v=bomQtBEYLTs</a>
+            </p>
+            <p>
+                <strong>台服SOLO又遇到脫裝 ※影片角色: 無糖無冰、羽澈(風無音)、會演是英雄、新橋奶會流</strong><br>
+                <a href="https://www.youtube.com/watch?v=UivzPGWviN0" target="_blank" rel="noopener noreferrer">https://www.youtube.com/watch?v=UivzPGWviN0</a>
+            </p>
+            <p>
+                <strong>魔獸世界至暗之夜第一季SOLO遇到脫裝 ※影片角色: 瞎瞎、俠菩提(龍皇)、搞心態別哭、赤鬼伯伯</strong><br>
+                <a href="https://www.youtube.com/watch?v=JPqUeamHL0k" target="_blank" rel="noopener noreferrer">https://www.youtube.com/watch?v=JPqUeamHL0k</a>
+            </p>
+        </section>
     </main>
     <script>
         const dataUrl = "https://wow-tw-202601.github.io/wow_image/eachDayEmailSection.txt";
