@@ -277,7 +277,7 @@ ${sperateSymbol} Reported Players:
 ${item.ReportPlayers}
 
 ${sperateSymbol} Reason for Reporting:
-${reportingReason}${Number(item.reportType) === 1999 ? "" : ` Please refer to the screenshot image url: 
+${reportingReason}${Number(item.reportType) === 1999 ? "\n\nAfter reviewing the data from the entire month and cross-referencing it with records from Check-PvP, it appears that these accounts have multiple characters that frequently coordinate matches to boost each other’s ratings. This behavior appears to be a clear violation of the game’s rules." : ` Please refer to the screenshot image url: 
 ${item.targetImagePath} 
 (via check pvp website)`}
 
@@ -418,7 +418,7 @@ https://tw-wow-pvp.wow-pvp-check-tw.workers.dev
                 if (Number(item.reportType) === 1999) {
                     const monthlyChip = document.createElement("span");
                     monthlyChip.className = "high-round-chip monthly-chip";
-                    monthlyChip.textContent = "整月合併";
+                    monthlyChip.textContent = "⭐整月合併紀錄";
                     summaryTags.append(monthlyChip);
                 } else {
                     const timeMatch = item.emailSuffix.match(/(?:^|[\s(T])([01]?\d|2[0-3]):[0-5]\d\b/);
