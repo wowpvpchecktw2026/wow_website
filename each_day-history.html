@@ -19,7 +19,7 @@
         h1 { font-size: 26px; }
         .character-form { display: flex; gap: 8px; align-items: center; flex-wrap: nowrap; }
         .character-form input, .character-form select { min-width: 0; padding: 10px 12px; border: 1px solid #d8dee8; border-radius: 6px; font: inherit; }
-        .character-form input { width: 250px; max-width: 250px; }
+        .character-form input { width: 300px; max-width: 300px; }
         .character-form select { max-width: 160px; }
         .character-form button { flex-shrink: 0; background: #218838; }
         .character-form input:focus-visible, .character-form select:focus-visible { outline: 2px solid #1769d2; outline-offset: 2px; }
@@ -78,7 +78,7 @@
         <h3>⚠️嫌太多很麻煩，也可以挑幾個場次比較高的時段投訴</h3>
 
         <form id="characterForm" class="character-form">
-            <input id="characterName" type="text" placeholder="輸入你角色名，第一人稱視角投訴" >
+            <input id="characterName" type="text" maxlength="12" placeholder="輸入你角色名,會用你第一人稱投訴" >
             <select id="characterRealm" aria-label="選擇伺服器">
                 <option value="">選擇伺服器</option>
             </select>
@@ -189,7 +189,16 @@
 
         document.getElementById("characterForm").addEventListener("submit", function (event) {
             event.preventDefault();
+            if (/[^\p{L}\p{M}]/u.test(characterInput.value)) {
+                window.alert("輸入錯誤  玩家名稱格式不合法");
+                return;
+            }
             const characterName = characterInput.value.trim();
+            if (characterName.length > 12) {
+                characterSaveStatus.textContent = "角色名稱最多輸入 12 個字。";
+                characterSaveStatus.hidden = false;
+                return;
+            }
             const realmCode = realmSelect.value;
             if (characterName && !Object.values(realmCodeMap).includes(realmCode)) {
                 characterSaveStatus.textContent = "請選擇伺服器。";
