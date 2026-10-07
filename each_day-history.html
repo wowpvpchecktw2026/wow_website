@@ -514,7 +514,9 @@ https://tw-wow-pvp.wow-pvp-check-tw.workers.dev
                 }
                 const emailGuidance = document.createElement("p");
                 emailGuidance.className = "email-guidance";
-                emailGuidance.textContent = "若你也覺得這戰績怪怪的。可寄信給BZ請求調查 👍\n點擊【上方按鈕】，即可將信件文案 自動帶入寄信UI中\n下方則是信件內容預覽、若需要可以查看";
+                emailGuidance.textContent = isMonthlyReport ?
+                    "若你也覺得這戰績怪怪的。可寄信給BZ請求調查 👍\n點擊【上方按鈕】，即可將開啟寄信介面\n請注意。整月合併的文案需要「手動複製貼上」" :
+                    "若你也覺得這戰績怪怪的。可寄信給BZ請求調查 👍\n點擊【上方按鈕】，即可將信件文案 自動帶入寄信UI中\n下方則是信件內容預覽、若需要可以查看";
                 const gmailButton = document.createElement("button");
                 gmailButton.type = "button";
                 gmailButton.textContent = isMonthlyReport ? "Gmail寄信 (字太多內文要手動填寫)" : "👆點擊此 開啟Gmail寄信";
