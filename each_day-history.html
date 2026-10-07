@@ -40,6 +40,7 @@
         .summary-tags { display: flex; gap: 8px; margin-left: auto; flex-shrink: 0; }
         .summary-tags .high-round-chip { margin-left: 0; }
         .early-morning-chip { background: #1769d2; }
+        .monthly-chip { background: #1769d2; }
         .many-players-chip { background: #cd7213; color: white; }
         summary:hover { background: #edf3fc; }
         summary:focus-visible, button:focus-visible { outline: 2px solid #1769d2; outline-offset: -2px; }
@@ -51,6 +52,7 @@
         pre { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font: 15px/1.8 Consolas, "Microsoft JhengHei", sans-serif; }
         button { padding: 10px 18px; border: 0; border-radius: 6px; background: #1769d2; color: white; font: inherit; cursor: pointer; }
         .email > button { margin: 0 8px 8px 0; }
+        .copy-body-button { background: #ffca28; color: #243044; }
         .participation-hint { color: #e67e22; }
         button:disabled { opacity: .6; cursor: wait; }
         @media (max-width: 600px) { main { margin: 24px auto; padding: 0 12px; } summary, .email { padding: 16px; } }
@@ -74,7 +76,7 @@
            若你也覺得某幾個場次紀錄怪怪的。可寄信請求BZ調查 👍👍
         </div>
 
-        <h3>⚠️寄信只是請求官方調查。是否違規、是由官方去做認定 (不用擔心舉報錯路人)</h3>
+        <h3>⚠️寄信只是請求官方調查。是否違規交由官方去做認定 (不用擔心舉報錯路人)</h3>
         <h3>⚠️嫌太多很麻煩，也可以挑幾個場次比較高的時段投訴</h3>
 
         <form id="characterForm" class="character-form">
@@ -275,7 +277,9 @@ ${sperateSymbol} Reported Players:
 ${item.ReportPlayers}
 
 ${sperateSymbol} Reason for Reporting:
-${reportingReason} Please refer to the screenshot image url: ${item.targetImagePath} (check pvp website)
+${reportingReason}${Number(item.reportType) === 1999 ? "" : ` Please refer to the screenshot image url: 
+${item.targetImagePath} 
+(via check pvp website)`}
 
 
 ${sperateSymbol} Description
@@ -317,6 +321,39 @@ https://tw-wow-pvp.wow-pvp-check-tw.workers.dev
             const content = document.createElement("pre");
             content.textContent = text;
             container.append(heading, content);
+        }
+
+        function copyEmailBody(body) {
+            function copyWithTextArea() {
+                const textArea = document.createElement("textarea");
+                const previousFocus = document.activeElement;
+                textArea.value = body;
+                textArea.style.position = "fixed";
+                textArea.style.left = "-9999px";
+                document.body.append(textArea);
+                let copied = false;
+                try {
+                    textArea.focus();
+                    textArea.select();
+                    copied = document.execCommand("copy");
+                } catch (error) {
+                    copied = false;
+                } finally {
+                    textArea.remove();
+                    if (previousFocus) {
+                        previousFocus.focus();
+                    }
+                }
+                if (!copied) {
+                    window.alert("複製失敗，請手動選取信件內文複製。");
+                }
+            }
+
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(body).catch(copyWithTextArea);
+            } else {
+                copyWithTextArea();
+            }
         }
 
         function isMobileDevice() {
@@ -374,34 +411,41 @@ https://tw-wow-pvp.wow-pvp-check-tw.workers.dev
                 const summary = document.createElement("summary");
                 const summaryText = document.createElement("span");
                 summaryText.className = "summary-text";
-                summaryText.textContent = "單排紀錄: " + item.emailSuffix.replace(/[()]/g, "").replace("GMT+8" , "");
+                summaryText.textContent = (Number(item.reportType) === 1999 ? "整月合併: " : "單排異常紀錄: ") + item.emailSuffix.replace(/[()]/g, "").replace("GMT+8" , "");
                 summary.append(summaryText);
                 const summaryTags = document.createElement("span");
                 summaryTags.className = "summary-tags";
-                const timeMatch = item.emailSuffix.match(/(?:^|[\s(T])([01]?\d|2[0-3]):[0-5]\d\b/);
-                if (timeMatch && Number(timeMatch[1]) <= 5) {
-                    // const earlyMorningChip = document.createElement("span");
-                    // earlyMorningChip.className = "high-round-chip early-morning-chip";
-                    // earlyMorningChip.textContent = "凌晨";
-                    // summaryTags.append(earlyMorningChip);
-                }
-                if (item.PlayerCount >= 15) {
-                    const manyPlayersChip = document.createElement("span");
-                    manyPlayersChip.className = "high-round-chip many-players-chip";
-                    manyPlayersChip.textContent = "角色很多";
-                    summaryTags.prepend(manyPlayersChip);
-                }
-                let roundLabel = "";
-                if (item.MaxWinLossRound > 70) {
-                    roundLabel = "極高場次";
-                } else if (item.MaxWinLossRound > 40) {
-                    roundLabel = "高場次";
-                }
-                if (roundLabel) {
-                    const highRoundChip = document.createElement("span");
-                    highRoundChip.className = item.MaxWinLossRound > 70 ? "high-round-chip extreme-round-chip" : "high-round-chip";
-                    highRoundChip.textContent = roundLabel;
-                    summaryTags.prepend(highRoundChip);
+                if (Number(item.reportType) === 1999) {
+                    const monthlyChip = document.createElement("span");
+                    monthlyChip.className = "high-round-chip monthly-chip";
+                    monthlyChip.textContent = "整月合併";
+                    summaryTags.append(monthlyChip);
+                } else {
+                    const timeMatch = item.emailSuffix.match(/(?:^|[\s(T])([01]?\d|2[0-3]):[0-5]\d\b/);
+                    if (timeMatch && Number(timeMatch[1]) <= 5) {
+                        // const earlyMorningChip = document.createElement("span");
+                        // earlyMorningChip.className = "high-round-chip early-morning-chip";
+                        // earlyMorningChip.textContent = "凌晨";
+                        // summaryTags.append(earlyMorningChip);
+                    }
+                    if (item.PlayerCount >= 15) {
+                        const manyPlayersChip = document.createElement("span");
+                        manyPlayersChip.className = "high-round-chip many-players-chip";
+                        manyPlayersChip.textContent = "角色很多";
+                        summaryTags.prepend(manyPlayersChip);
+                    }
+                    let roundLabel = "";
+                    if (item.MaxWinLossRound > 70) {
+                        roundLabel = "極高場次";
+                    } else if (item.MaxWinLossRound > 40) {
+                        roundLabel = "高場次";
+                    }
+                    if (roundLabel) {
+                        const highRoundChip = document.createElement("span");
+                        highRoundChip.className = item.MaxWinLossRound > 70 ? "high-round-chip extreme-round-chip" : "high-round-chip";
+                        highRoundChip.textContent = roundLabel;
+                        summaryTags.prepend(highRoundChip);
+                    }
                 }
                 if (summaryTags.childElementCount > 0) {
                     summary.append(summaryTags);
@@ -410,43 +454,59 @@ https://tw-wow-pvp.wow-pvp-check-tw.workers.dev
                 email.className = "email";
                 const subject = subjectTemplates[Math.floor(Math.random() * subjectTemplates.length)] + " " + item.emailSuffix;
                 const body = buildEmailBody(item);
+                const isMonthlyReport = Number(item.reportType) === 1999;
+                const composeBody = isMonthlyReport ? Array(5).fill("💀💀🔥🔥 內文需要手動複製過來 🔥🔥💀💀").join("\n") : body;
                 const gmailButton = document.createElement("button");
                 gmailButton.type = "button";
-                gmailButton.textContent = "👆點擊此 開啟Gmail寄信";
+                gmailButton.textContent = isMonthlyReport ? "Gmail寄信 (字太多內文要手動填寫)" : "👆點擊此 開啟Gmail寄信";
                 gmailButton.addEventListener("click", function () {
-                    openGmail(subject, body);
+                    openGmail(subject, composeBody);
                 });
                 const outlookButton = document.createElement("button");
                 outlookButton.type = "button";
-                outlookButton.textContent = "👆點擊此 開啟outlook寄信";
+                outlookButton.textContent = isMonthlyReport ? "Outlook寄信 (字太多內文要手動填寫)" : "👆點擊此 開啟outlook寄信";
                 outlookButton.addEventListener("click", function () {
-                    openOutlook(subject, body);
+                    openOutlook(subject, composeBody);
                 });
-                const participationHint = document.createElement("span");
-                participationHint.className = "participation-hint";
-                participationHint.textContent = "歡迎大家響應一起寄信投訴 👍👍";
-                email.append(gmailButton, outlookButton, participationHint);
+                email.append(gmailButton, outlookButton);
+                if (isMonthlyReport) {
+                    const copyButton = document.createElement("button");
+                    copyButton.type = "button";
+                    copyButton.className = "copy-body-button";
+                    copyButton.textContent = "複製內文到剪貼簿";
+                    copyButton.addEventListener("click", function () {
+                        copyEmailBody(body);
+                    });
+                    email.append(copyButton);
+                } else {
+                    const participationHint = document.createElement("span");
+                    participationHint.className = "participation-hint";
+                    participationHint.textContent = "歡迎大家響應一起寄信投訴 👍👍";
+                    email.append(participationHint);
+                }
                 appendTextSection(email, "⭐收件信箱⭐", "hacks@blizzard.com");
                 appendTextSection(email, "⭐信件標題⭐", subject);
                 appendTextSection(email, "⭐信件內容⭐", body);
-                const imageHint = document.createElement("p");
-                imageHint.style.marginTop = "40px";
-                imageHint.textContent = "⭐建議此圖片 手動加入信件內容中 或 信件附檔中 (PrintScreen鍵 或  windows鍵 + shift + S)";
-                email.append(imageHint);
-                const image = document.createElement("img");
-                image.className = "report-image";
-                image.alt = "Check-PvP 截圖 " + item.emailSuffix;
-                accordion.addEventListener("toggle", function () {
-                    if (accordion.open && !image.hasAttribute("src")) {
-                        image.src = item.targetImagePath;
-                    }
-                });
-                const imageLink = document.createElement("a");
-                imageLink.href = item.targetImagePath;
-                imageLink.target = "_blank";
-                imageLink.rel = "noopener noreferrer";
-                imageLink.append(image);
-                email.append(imageLink);
+                if (Number(item.reportType) !== 1999) {
+                    const imageHint = document.createElement("p");
+                    imageHint.style.marginTop = "40px";
+                    imageHint.textContent = "⭐建議此圖片 手動加入信件內容中 或 信件附檔中 (PrintScreen鍵 或  windows鍵 + shift + S)";
+                    email.append(imageHint);
+                    const image = document.createElement("img");
+                    image.className = "report-image";
+                    image.alt = "Check-PvP 截圖 " + item.emailSuffix;
+                    accordion.addEventListener("toggle", function () {
+                        if (accordion.open && !image.hasAttribute("src")) {
+                            image.src = item.targetImagePath;
+                        }
+                    });
+                    const imageLink = document.createElement("a");
+                    imageLink.href = item.targetImagePath;
+                    imageLink.target = "_blank";
+                    imageLink.rel = "noopener noreferrer";
+                    imageLink.append(image);
+                    email.append(imageLink);
+                }
                 accordion.append(summary, email);
                 reportEntries.push({ accordion: accordion, players: item.ReportPlayers.toLowerCase() });
                 fragment.append(accordion);
