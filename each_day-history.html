@@ -24,7 +24,10 @@
         .character-form button { flex-shrink: 0; background: #218838; }
         .character-form input:focus-visible, .character-form select:focus-visible { outline: 2px solid #1769d2; outline-offset: 2px; }
         #characterSaveStatus { color: #b42318; }
-        #status { line-height: 1.7; }
+        .report-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 30px; }
+        #status { line-height: 1.7; margin: 0; }
+        #playerSearch { width: 260px; max-width: 100%; padding: 10px 12px; border: 1px solid #d8dee8; border-radius: 6px; font: inherit; }
+        #playerSearch:focus-visible { outline: 2px solid #1769d2; outline-offset: 2px; }
         #status.error { color: #b42318; }
         details { margin: 16px 0; border: 1px solid #d8dee8; border-radius: 10px; background: white; overflow: hidden; }
         summary { display: flex; align-items: center; gap: 12px; padding: 18px 20px; font-weight: bold; cursor: pointer; overflow-wrap: anywhere; list-style: none; }
@@ -37,6 +40,7 @@
         .summary-tags { display: flex; gap: 8px; margin-left: auto; flex-shrink: 0; }
         .summary-tags .high-round-chip { margin-left: 0; }
         .early-morning-chip { background: #1769d2; }
+        .many-players-chip { background: #cd7213; color: white; }
         summary:hover { background: #edf3fc; }
         summary:focus-visible, button:focus-visible { outline: 2px solid #1769d2; outline-offset: -2px; }
         details[open] summary { border-bottom: 1px solid #d8dee8; }
@@ -67,7 +71,7 @@
            點擊每個區塊可以展開內容。並且附上投訴信文案 (並提供按鈕 可連接Gmail、outlook寄信)
         </div>
          <div>
-           若你也覺得某幾個場次紀錄怪怪的。歡迎一起寄信投訴 👍👍
+           若你也覺得某幾個場次紀錄怪怪的。可寄信請求BZ調查 👍👍
         </div>
 
         <h3>⚠️寄信只是請求官方調查。是否違規、是由官方去做認定 (不用擔心舉報錯路人)</h3>
@@ -81,7 +85,10 @@
             <button type="submit">SAVE (修改完記得按)</button>
         </form>
         <p id="characterSaveStatus" role="status" aria-live="polite" hidden></p>
-        <p id="status" role="status" aria-live="polite">正在載入資料…</p>
+        <div class="report-toolbar">
+            <p id="status" role="status" aria-live="polite">正在載入資料…</p>
+            <input id="playerSearch" type="search" placeholder="搜尋玩家名稱或伺服器" aria-label="搜尋 ReportPlayers" disabled>
+        </div>
         <button id="retry" type="button" hidden>重新載入</button>
         <section id="reports" aria-label="檢舉信件列表" aria-busy="true"></section>
     </main>
@@ -90,6 +97,27 @@
         const status = document.getElementById("status");
         const reports = document.getElementById("reports");
         const retry = document.getElementById("retry");
+        const playerSearch = document.getElementById("playerSearch");
+        const reportEntries = [];
+        playerSearch.addEventListener("input", filterReports);
+
+        function filterReports() {
+            const keyword = playerSearch.value.trim().toLowerCase();
+            let matchedCount = 0;
+            reportEntries.forEach(function (entry) {
+                const matches = entry.players.includes(keyword);
+                entry.accordion.hidden = !matches;
+                if (matches) {
+                    matchedCount++;
+                }
+            });
+            if (keyword) {
+                status.textContent = "共 " + reportEntries.length + " 筆資料，搜尋命中 " + matchedCount + " 筆。" +
+                    (matchedCount ? "點選標題展開信件。" : "沒有符合的玩家資料。");
+            } else {
+                status.textContent = reportEntries.length ? "共 " + reportEntries.length + " 筆資料，點選標題展開信件。" : "目前沒有資料。";
+            }
+        }
         const realmCodeMap = {
             '憤怒使者': 'wrathbringer',
             '暗影之月': 'shadowmoon',
@@ -179,7 +207,7 @@
         });
         const requiredFields = ["emailSuffix", "ReportingPeriod", "ReportPlayers", "RelateAccountFormat", "ReportPlayerScoreHistory", "targetImagePath"];
 
-        const sperateSymbols = ["＃", "※", "＋", "．"];
+        const sperateSymbols = ["＃", "※", "＋", "＞"];
         const subjectTemplates = [
             "[Solo / TW region] request to investigate solo rating farming",
             "[TW Region] Request to Investigate Suspected Solo Rating Farming",
@@ -187,7 +215,7 @@
             "[TW Region] Suspected Solo Rating Farming and Match Manipulation",
             "[TW Region｜Solo] Report of Suspected Solo Rating Farming Activity",
             "[TW Region] Request to Review Possible Solo Shuffle Rating Manipulation",
-            "[Solo Shuffle / TW] Report of Suspected Rating Farming and Win-Trading",
+            "[Solo Shuffle / TW] Report of Suspected Rating Manipulation and Win-Trading",
             "[TW] Request Investigate Coordinated Rating Manipulation in Solo Shuffle",
             "[TW Region] Review Request for Suspicious Solo Shuffle Rating boost",
             "[TW／Solo Shuffle] Report of Possible Rating Farming and Match Coordination"
@@ -195,10 +223,10 @@
 
         const reportingReasonTemplates = [
             "Multiple players appear to be exploiting game mechanics and coordinating to manipulate Solo Shuffle ratings, potentially involving rating farming, win-trading during the specified reporting period",
-            "Several players are suspected of working together to abuse Solo Shuffle mechanics and influence ratings through coordinated matches, possible rating farming, win-trading during the specified reporting period.",
+            "Several players are suspected of working together to abuse Solo Shuffle mechanics and influence ratings through coordinated matches, possible rating manipulation, win-trading during the specified reporting period.",
             "The reported activity raises concerns about possible coordination among players to manipulate Solo Shuffle ratings, including suspected rating farming, win-trading during the specified reporting period.",
-            "Some players appear to be coordinating their Solo Shuffle activity to gain unfair rating advantages, with possible involvement in rating farming, win-trading during the specified reporting period",
-            "I request a review of suspected coordinated abuse of Solo Shuffle mechanics, particularly possible rating manipulation, rating farming, win-trading during the reporting period."
+            "Some players appear to be coordinating their Solo Shuffle activity to gain unfair rating advantages, with possible involvement in rating manipulation, win-trading during the specified reporting period",
+            "I request a review of suspected coordinated abuse of Solo Shuffle mechanics, particularly possible rating manipulation, rating manipulation, win-trading during the reporting period."
         ];
 
         const conclusionTemplates = [
@@ -213,8 +241,7 @@
             const violations = [
                 "- Account sharing between multiple people",
                 "- Intentional disruption and griefing in arenas",
-                "- Win-trading & score farming",
-                "- Coordinating with multiple acquaintances to enter the same match and manipulate ratings",
+                "- Coordinated queue sniping, rating manipulation, and win-trading",
                 "- Reported by multiple players in-game (reporting system)"
             ];
             for (let index = violations.length - 1; index > 0; index--) {
@@ -250,8 +277,8 @@ I respectfully request that Blizzard examine the relevant internal records to de
 ${violations.join("\n")}
 
 
-${item.RelateAccountFormat.includes("#Account 1") ? `${sperateSymbol} Most of the characters originate from specific accounts.
-By cross-referencing their achievements, it can also be observed that most of these characters belong to specific Battle.net accounts.\n${item.RelateAccountFormat}
+${item.RelateAccountFormat.includes("#Account 1") ? `${sperateSymbol} Most of the characters associated with specific Battle accounts.
+By cross-referencing their achievements, I identified multiple characters associated with the same Battle.net accounts.\n${item.RelateAccountFormat}
 ` : ""}
 
 ${sperateSymbol} Conclusion:
@@ -331,6 +358,7 @@ https://tw-wow-pvp.wow-pvp-check-tw.workers.dev
         }
 
         function renderReports(items) {
+            reportEntries.length = 0;
             const fragment = document.createDocumentFragment();
             items.forEach(function (item, index) {
                 const accordion = document.createElement("details");
@@ -343,10 +371,16 @@ https://tw-wow-pvp.wow-pvp-check-tw.workers.dev
                 summaryTags.className = "summary-tags";
                 const timeMatch = item.emailSuffix.match(/(?:^|[\s(T])([01]?\d|2[0-3]):[0-5]\d\b/);
                 if (timeMatch && Number(timeMatch[1]) <= 5) {
-                    const earlyMorningChip = document.createElement("span");
-                    earlyMorningChip.className = "high-round-chip early-morning-chip";
-                    earlyMorningChip.textContent = "凌晨";
-                    summaryTags.append(earlyMorningChip);
+                    // const earlyMorningChip = document.createElement("span");
+                    // earlyMorningChip.className = "high-round-chip early-morning-chip";
+                    // earlyMorningChip.textContent = "凌晨";
+                    // summaryTags.append(earlyMorningChip);
+                }
+                if (item.PlayerCount >= 15) {
+                    const manyPlayersChip = document.createElement("span");
+                    manyPlayersChip.className = "high-round-chip many-players-chip";
+                    manyPlayersChip.textContent = "角色很多";
+                    summaryTags.prepend(manyPlayersChip);
                 }
                 let roundLabel = "";
                 if (item.MaxWinLossRound > 70) {
@@ -405,12 +439,15 @@ https://tw-wow-pvp.wow-pvp-check-tw.workers.dev
                 imageLink.append(image);
                 email.append(imageLink);
                 accordion.append(summary, email);
+                reportEntries.push({ accordion: accordion, players: item.ReportPlayers.toLowerCase() });
                 fragment.append(accordion);
             });
             reports.replaceChildren(fragment);
+            filterReports();
         }
 
         function loadReports() {
+            playerSearch.disabled = true;
             status.textContent = "正在載入資料…";
             status.className = "";
             retry.hidden = true;
@@ -440,9 +477,10 @@ https://tw-wow-pvp.wow-pvp-check-tw.workers.dev
                         });
                     });
                     renderReports(items);
-                    status.textContent = items.length ? "共 " + items.length + " 筆資料，點選標題展開信件。" : "目前沒有資料。";
+                    playerSearch.disabled = false;
                 })
                 .catch(function (error) {
+                    reportEntries.length = 0;
                     reports.replaceChildren();
                     status.className = "error";
                     status.textContent = error.name === "AbortError" ? "載入逾時，請重新載入。" : "載入失敗：" + error.message + " 請確認網路連線及端點是否允許跨來源存取（CORS）。";
