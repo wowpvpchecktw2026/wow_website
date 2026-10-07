@@ -294,7 +294,11 @@ ${item.RelateAccountFormat.includes("#Account 1") ? `${sperateSymbol} Most of th
 By cross-referencing their achievements, I identified multiple characters associated with the same Battle.net accounts.\n${item.RelateAccountFormat}
 ` : ""}
 
-${sperateSymbol} Conclusion:
+${typeof item.AdditionalReportingPeriods === "string" && item.AdditionalReportingPeriods.trim() !== "" ? `${sperateSymbol} Additional Reporting Periods:
+Similar suspicious activity was also observed at several other times. Please also review the following periods for potential recurring patterns of coordinated rating manipulation or win-trading:
+${item.AdditionalReportingPeriods}
+
+` : ""}${sperateSymbol} Conclusion:
 ${conclusion}
 
 ${sperateSymbol} Supporting Evidence:
@@ -364,9 +368,12 @@ https://tw-wow-pvp.wow-pvp-check-tw.workers.dev
                 (/Macintosh/i.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
         }
 
-        function openGmail(subject, body) {
+        function openGmail(subject, body, isMonthlyReport) {
             if (isMobileDevice()) {
                 window.alert("此功能只允許電腦版操作");
+                return;
+            }
+            if (isMonthlyReport && !window.confirm("整月合併內文字數太多。內文需要手動複製貼上")) {
                 return;
             }
             const parameters = new URLSearchParams({
@@ -384,9 +391,12 @@ https://tw-wow-pvp.wow-pvp-check-tw.workers.dev
             );
         }
 
-        function openOutlook(subject, body) {
+        function openOutlook(subject, body, isMonthlyReport) {
             if (isMobileDevice()) {
                 window.alert("此功能只允許電腦版操作");
+                return;
+            }
+            if (isMonthlyReport && !window.confirm("整月合併內文字數太多。內文需要手動複製貼上")) {
                 return;
             }
             const parameters = new URLSearchParams({
@@ -460,13 +470,13 @@ https://tw-wow-pvp.wow-pvp-check-tw.workers.dev
                 gmailButton.type = "button";
                 gmailButton.textContent = isMonthlyReport ? "Gmail寄信 (字太多內文要手動填寫)" : "👆點擊此 開啟Gmail寄信";
                 gmailButton.addEventListener("click", function () {
-                    openGmail(subject, composeBody);
+                    openGmail(subject, composeBody, isMonthlyReport);
                 });
                 const outlookButton = document.createElement("button");
                 outlookButton.type = "button";
                 outlookButton.textContent = isMonthlyReport ? "Outlook寄信 (字太多內文要手動填寫)" : "👆點擊此 開啟outlook寄信";
                 outlookButton.addEventListener("click", function () {
-                    openOutlook(subject, composeBody);
+                    openOutlook(subject, composeBody, isMonthlyReport);
                 });
                 email.append(gmailButton, outlookButton);
                 if (isMonthlyReport) {
