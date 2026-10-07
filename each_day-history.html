@@ -32,8 +32,11 @@
         summary::before { content: ""; flex-shrink: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-left: 7px solid #243044; }
         details[open] summary::before { transform: rotate(90deg); }
         .summary-text { flex: 1; min-width: 0; }
-        .high-round-chip { margin-left: auto; flex-shrink: 0; padding: 4px 10px; border-radius: 5px; background: #b42318; color: white; font-size: 16px; line-height: 1.5; white-space: nowrap; }
+        .high-round-chip { margin-left: auto; flex-shrink: 0; padding: 3px 8px; border-radius: 5px; background: #b42318; color: white; font-size: 15px; line-height: 1.5; white-space: nowrap; }
         .extreme-round-chip { background: #7b1fa2; }
+        .summary-tags { display: flex; gap: 8px; margin-left: auto; flex-shrink: 0; }
+        .summary-tags .high-round-chip { margin-left: 0; }
+        .early-morning-chip { background: #1769d2; }
         summary:hover { background: #edf3fc; }
         summary:focus-visible, button:focus-visible { outline: 2px solid #1769d2; outline-offset: -2px; }
         details[open] summary { border-bottom: 1px solid #d8dee8; }
@@ -51,7 +54,12 @@
 </head>
 <body>
     <main>
-        <h1>Solo Shuffle 信件投訴整理</h1>
+        <h1>
+       魔獸世界 Solo Shuffle 信件投訴整理
+       <img style="width: 48px;" src="https://thumb.wikimedia.org/wikipedia/commons/thumb/archive/e/eb/20171015201103%21WoW_icon.svg/120px-WoW_icon.svg.png?utm_source=no.wikipedia.org&utm_campaign=index&utm_content=thumbnail">
+      
+    
+    </h1>
         <div>
             本頁面收錄單排可能異常爬分的場次紀錄 (資料來源check pvp 三小時一次紀錄)
         </div>
@@ -186,22 +194,35 @@
         ];
 
         const reportingReasonTemplates = [
-            "Multiple players appear to be exploiting game mechanics and coordinating to manipulate Solo Shuffle ratings, potentially involving rating framing, win-trading, and real-money trading.",
-            "Several players are suspected of working together to abuse Solo Shuffle mechanics and influence ratings through coordinated matches, possible rating framing, win-trading, or RMT activity.",
-            "The reported activity raises concerns about possible coordination among players to manipulate Solo Shuffle ratings, including suspected rating framing, win-trading.",
-            "Some players appear to be coordinating their Solo Shuffle activity to gain unfair rating advantages, with possible involvement in rating framing, win-trading, and RMT-related arrangements.",
-            "I request a review of suspected coordinated abuse of Solo Shuffle mechanics, particularly possible rating manipulation, rating framing, win-trading."
+            "Multiple players appear to be exploiting game mechanics and coordinating to manipulate Solo Shuffle ratings, potentially involving rating farming, win-trading during the specified reporting period",
+            "Several players are suspected of working together to abuse Solo Shuffle mechanics and influence ratings through coordinated matches, possible rating farming, win-trading during the specified reporting period.",
+            "The reported activity raises concerns about possible coordination among players to manipulate Solo Shuffle ratings, including suspected rating farming, win-trading during the specified reporting period.",
+            "Some players appear to be coordinating their Solo Shuffle activity to gain unfair rating advantages, with possible involvement in rating farming, win-trading during the specified reporting period",
+            "I request a review of suspected coordinated abuse of Solo Shuffle mechanics, particularly possible rating manipulation, rating farming, win-trading during the reporting period."
         ];
 
         const conclusionTemplates = [
-            "Please review the listed characters’ Solo Shuffle activity during the reporting period, including queue records, lobby data, gameplay, equipment changes, account access, and interactions with associated accounts.",
-            "I respectfully request an investigation into the reported characters’ Solo Shuffle activity within the specified timeframe, covering queue history, lobby records, gameplay, equipment changes, account access, and interactions with linked accounts.",
-            "Please examine the relevant internal records for these characters during the stated period, including Solo Shuffle queues, lobby data, gameplay, equipment changes, account access, and interactions with related accounts.",
-            "I ask Blizzard to investigate the listed characters’ Solo Shuffle participation during the specified period by reviewing queue records, lobby information, gameplay, equipment changes, account access, and interactions with associated accounts.",
-            "Please assess the reported Solo Shuffle activity within the indicated timeframe, reviewing the listed characters’ queue records, lobby data, gameplay, equipment changes, account access, and interactions with connected accounts."
+            "Please review the listed characters’ Solo Shuffle activity during the reporting period, including queue records, arena data, gameplay, account access, and interactions with associated accounts.",
+            "I respectfully request an investigation into the reported characters’ Solo Shuffle activity within the specified timeframe, covering queue history, arena records, gameplay, and interactions with linked accounts.",
+            "Please examine the relevant internal records for these characters during the stated period, including Solo Shuffle queues, gameplay, account access, and interactions with related accounts.",
+            "I ask Blizzard to investigate the listed characters’ Solo Shuffle participation during the specified period by reviewing queue records, gameplay, and interactions with associated accounts.",
+            "Please assess the reported Solo Shuffle activity within the indicated timeframe, reviewing the listed characters’ queue records, gameplay, account access, and interactions with connected accounts."
         ];
 
         function buildEmailBody(item) {
+            const violations = [
+                "- Account sharing between multiple people",
+                "- Intentional disruption and griefing in arenas",
+                "- Win-trading & score farming",
+                "- Coordinating with multiple acquaintances to enter the same match and manipulate ratings",
+                "- Reported by multiple players in-game (reporting system)"
+            ];
+            for (let index = violations.length - 1; index > 0; index--) {
+                const randomIndex = Math.floor(Math.random() * (index + 1));
+                const value = violations[index];
+                violations[index] = violations[randomIndex];
+                violations[randomIndex] = value;
+            }
             const conclusion = conclusionTemplates[Math.floor(Math.random() * conclusionTemplates.length)];
             const reportingReason = reportingReasonTemplates[Math.floor(Math.random() * reportingReasonTemplates.length)];
             const sperateSymbol = sperateSymbols[Math.floor(Math.random() * sperateSymbols.length)];
@@ -217,25 +238,25 @@ Solo shuffle
 ${sperateSymbol} Reported Players:
 ${item.ReportPlayers}
 
-${sperateSymbol} Desciption
-Hi, I am a player from the Taiwan region.${savedCharacterName ? "\nMy character is " + savedCharacterName + (savedRealmCode ? "-" + savedRealmCode + " ." : "") : ""}
+${sperateSymbol} Reason for Reporting:
+${reportingReason} Please refer to the screenshot image url: ${item.targetImagePath} (check pvp website)
+
+
+${sperateSymbol} Description
+I am a player from Taiwan region.${savedCharacterName ? "\nMy character is " + savedCharacterName + (savedRealmCode ? "-" + savedRealmCode + " ." : "") : ""}
 I am submitting this report to request an investigation into possible coordinated rating manipulation and gameplay sabotage in Solo Shuffle.
 These characters have suspicious match record, rating farming during the specified reporting period.
 I respectfully request that Blizzard examine the relevant internal records to determine whether any of the following violations occurred:
-- Account sharing between multiple people
-- Some of these accounts have received 7-day bans, yet continue disruptive behavior in PvP
-- Intentional disruption and griefing in arenas
-- Win-trading & score farming
-- Coordinating with multiple acquaintances to enter the same match and manipulate ratings
-- Reported by multiple players in-game (reporting system)
+${violations.join("\n")}
 
-
-${sperateSymbol} Reason for Reporting:
-${reportingReason}
 
 ${item.RelateAccountFormat.includes("#Account 1") ? `${sperateSymbol} Most of the characters originate from specific accounts.
 By cross-referencing their achievements, it can also be observed that most of these characters belong to specific Battle.net accounts.\n${item.RelateAccountFormat}
 ` : ""}
+
+${sperateSymbol} Conclusion:
+${conclusion}
+
 ${sperateSymbol} Supporting Evidence:
 *Data source 1 (by wow check pvp website)
 Screenshot image url:
@@ -245,11 +266,7 @@ ${item.targetImagePath}
 With the assistance of players with technical expertise, information was collected through the official Blizzard Developer API endpoint:
 data/wow/pvp-season/{season_pvp_id}/pvp-leaderboard/shuffle-overall
 
-This API is updated every 3 hours. By comparing each update with historical records, it is possible to identify players whose ratings changed during each three-hour period.
-and We also obtained screenshots and related information from the well-known website Check-PvP, providing two independent sources of supporting evidence.
-
-${sperateSymbol} Conclusion:
-${conclusion}
+This API is updated every 3 hours. By comparing with api records, it is possible to identify players whose ratings changed during each three-hour period.
 
 ${sperateSymbol} Additional Reference:
 With a technical player support, I compiled a list of multiple characters linked to same Battle.net account that have repeatedly exhibited abnormal rating activity. 
@@ -266,7 +283,19 @@ https://tw-wow-pvp.wow-pvp-check-tw.workers.dev
             container.append(heading, content);
         }
 
+        function isMobileDevice() {
+            if (navigator.userAgentData && navigator.userAgentData.mobile) {
+                return true;
+            }
+            return /Android|iPhone|iPad|iPod|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+                (/Macintosh/i.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
+        }
+
         function openGmail(subject, body) {
+            if (isMobileDevice()) {
+                window.alert("此功能只允許電腦版操作");
+                return;
+            }
             const parameters = new URLSearchParams({
                 view: "cm",
                 fs: "1",
@@ -283,6 +312,10 @@ https://tw-wow-pvp.wow-pvp-check-tw.workers.dev
         }
 
         function openOutlook(subject, body) {
+            if (isMobileDevice()) {
+                window.alert("此功能只允許電腦版操作");
+                return;
+            }
             const parameters = new URLSearchParams({
                 to: "hacks@blizzard.com",
                 subject: subject,
@@ -304,8 +337,17 @@ https://tw-wow-pvp.wow-pvp-check-tw.workers.dev
                 const summary = document.createElement("summary");
                 const summaryText = document.createElement("span");
                 summaryText.className = "summary-text";
-                summaryText.textContent = "第 " + (index + 1) + " 筆 — " + item.emailSuffix.replace(/[()]/g, "");
+                summaryText.textContent = "單排紀錄: " + item.emailSuffix.replace(/[()]/g, "").replace("GMT+8" , "");
                 summary.append(summaryText);
+                const summaryTags = document.createElement("span");
+                summaryTags.className = "summary-tags";
+                const timeMatch = item.emailSuffix.match(/(?:^|[\s(T])([01]?\d|2[0-3]):[0-5]\d\b/);
+                if (timeMatch && Number(timeMatch[1]) <= 5) {
+                    const earlyMorningChip = document.createElement("span");
+                    earlyMorningChip.className = "high-round-chip early-morning-chip";
+                    earlyMorningChip.textContent = "凌晨";
+                    summaryTags.append(earlyMorningChip);
+                }
                 let roundLabel = "";
                 if (item.MaxWinLossRound > 70) {
                     roundLabel = "極高場次";
@@ -316,7 +358,10 @@ https://tw-wow-pvp.wow-pvp-check-tw.workers.dev
                     const highRoundChip = document.createElement("span");
                     highRoundChip.className = item.MaxWinLossRound > 70 ? "high-round-chip extreme-round-chip" : "high-round-chip";
                     highRoundChip.textContent = roundLabel;
-                    summary.append(highRoundChip);
+                    summaryTags.prepend(highRoundChip);
+                }
+                if (summaryTags.childElementCount > 0) {
+                    summary.append(summaryTags);
                 }
                 const email = document.createElement("div");
                 email.className = "email";
