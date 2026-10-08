@@ -5,10 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
     <script>
+        const pageAccessParameters = [];
         (function () {
             const url = new URL(window.location.href);
             if (url.protocol === "file:") return;
             if (url.searchParams.has("qqq")) {
+                pageAccessParameters.push(...url.searchParams.getAll("qqq"));
                 url.searchParams.delete("qqq");
                 window.history.replaceState(window.history.state, "", url.href);
             } else {
@@ -184,6 +186,7 @@
         </section>
     </main>
     <script>
+        const pageAccessParameters = [];
         (function () {
         if (document.documentElement.classList.contains("page-expired")) return;
 
@@ -330,7 +333,16 @@
                 characterSaveStatus.hidden = false;
                 return;
             }
-            window.location.reload();
+            if (pageAccessParameters.length) {
+                const url = new URL(window.location.href);
+                url.searchParams.delete("qqq");
+                pageAccessParameters.forEach(function (value) {
+                    url.searchParams.append("qqq", value);
+                });
+                window.location.replace(url.href);
+            } else {
+                window.location.reload();
+            }
         });
         const requiredFields = ["emailSuffix", "ReportingPeriod", "ReportPlayers", "RelateAccountFormat", "ReportPlayerScoreHistory", "targetImagePath"];
 
