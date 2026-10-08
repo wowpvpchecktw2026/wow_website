@@ -4,6 +4,19 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
+    <script>
+        (function () {
+            const url = new URL(window.location.href);
+            if (url.protocol === "file:") return;
+            if (url.searchParams.has("qqq")) {
+                url.searchParams.delete("qqq");
+                window.history.replaceState(window.history.state, "", url.href);
+            } else {
+                document.documentElement.classList.add("page-expired");
+            }
+        })();
+    </script>
+
     <link rel="icon" type="image/x-icon" href="https://wow-tw-202601.github.io/wow_image/WoW_icon.ico">
     <meta property="og:title" content="Solo 單排信件投訴整理">
     <meta property="og:description" content="單排異常局、投訴信整理">
@@ -14,6 +27,9 @@
     <title>魔獸 - Solo Shuffle 信件投訴整理</title>
     <style>
         * { box-sizing: border-box; }
+        #pageExpired { display: none; }
+        html.page-expired body > * { display: none !important; }
+        html.page-expired body > #pageExpired { display: block !important; margin: 80px 20px; text-align: center; font-size: 24px; }
         body { margin: 0; background: #f5f7fa; color: #243044; font-family: "Microsoft JhengHei", sans-serif; }
         main { max-width: 1000px; margin: 40px auto; padding: 0 20px; }
         h1 { font-size: 26px; }
@@ -51,6 +67,16 @@
         h2:first-child { margin-top: 0; }
         pre { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font: 15px/1.8 Consolas, "Microsoft JhengHei", sans-serif; }
         button { padding: 10px 18px; border: 0; border-radius: 6px; background: #1769d2; color: white; font: inherit; cursor: pointer; }
+        .usage-link { padding: 0; background: none; color: #1769d2; text-decoration: underline; text-underline-offset: 3px; border-radius: 0; }
+        .usage-modal { width: min(600px, calc(100% - 32px)); max-height: calc(100dvh - 48px); padding: 0; border: 1px solid #d8dee8; border-radius: 8px; background: white; color: #243044; box-shadow: 0 12px 40px rgba(0, 0, 0, .25); overflow-y: auto; }
+        .usage-modal::backdrop { background: rgba(0, 0, 0, .5); }
+        .usage-modal-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 20px; border-bottom: 1px solid #d8dee8; }
+        .usage-modal-header h2 { margin: 0; font-size: 20px; }
+        .usage-modal-close { padding: 0 6px; background: none; color: #667085; font-size: 28px; line-height: 1; }
+        .usage-modal-body { padding: 20px; line-height: 1.8; overflow-wrap: anywhere; }
+        .usage-modal-body p { margin: 0 0 16px; }
+        .usage-modal-body p:last-child { margin-bottom: 0; }
+        .usage-modal-footer { display: flex; justify-content: flex-end; padding: 12px 20px; border-top: 1px solid #d8dee8; }
         .email > button { margin: 20px 8px 8px 0; }
         .email > .email-guidance + h2 { margin-top: 60px; }
         .copy-body-button { background: #ffca28; color: #243044; }
@@ -63,28 +89,58 @@
     </style>
 </head>
 <body>
+    <p id="pageExpired" role="alert">你的頁面已過期 Page Expired</p>
     <main>
         <h1>
-       魔獸世界 Solo Shuffle 信件投訴整理
        <img style="width: 48px;" src="https://thumb.wikimedia.org/wikipedia/commons/thumb/archive/e/eb/20171015201103%21WoW_icon.svg/120px-WoW_icon.svg.png?utm_source=no.wikipedia.org&utm_campaign=index&utm_content=thumbnail">
       
+       台服本賽季 Solo Shuffle 單排 疑似異常爬分紀錄 總整理 
     
-    </h1>
-        <div>
-            本頁面收錄單排可能異常爬分的場次紀錄 (資料來源check pvp 三小時一次紀錄)
-        </div>
-        <div>
-           點擊每個區塊可以展開內容。並且附上投訴信文案 (並提供按鈕 可連接Gmail、outlook寄信)
-        </div>
-         <div>
-           若你也覺得某幾個場次紀錄怪怪的。可寄信請求BZ調查 👍👍
-        </div>
+        </h1>
+        <h4>
+          (凌晨時段場次異常? 或 爬分速度有些異常? )
+        </h4>
 
-        <h3>⚠️寄信只是請求官方調查。是否違規交由官方去做認定 (不用太擔心舉報到無辜路人)</h3>
-        <h3>💡嫌太多很麻煩，也可以挑幾個場次比較高的時段投訴</h3>
-        <h3>💡建議每天寄個3~5封就好，不要太多避免被視為垃圾信</h3>
+        <button id="usageOpen" class="usage-link" type="button" aria-haspopup="dialog" aria-controls="usageModal">💡教學說明: 本頁面如何使用</button>
+        <dialog id="usageModal" class="usage-modal" aria-labelledby="usageTitle">
+            <div class="usage-modal-header">
+                <h2 id="usageTitle">本頁面如何使用</h2>
+                <button class="usage-modal-close" type="button" aria-label="關閉說明" data-close-usage>&times;</button>
+            </div>
+            <div class="usage-modal-body">
+                <h3>❓頁面列的清單是什麼？</h3>
+                <div>列出本季單排爬分較異常的紀錄 (資料來源check pvp)</div>
+                <div>可能是凌晨時段場次卻異常多、或某個人勝場、總場次數異常高</div>
+                <h3>❓可以做什麼操作嗎？</h3>
+                <p>點擊每個區塊可以展開內容。並且提供貼心按鈕</p>
+                <p>點擊後，可直連Gmail、outlook寄信介面、並且自動帶入標題、信件文案</p>
+                <h3>❓資料很多。每筆都要寄信回報?</h3>
+                <div>
+                    若你時間有限。可以只針對特定內容的場次投訴
+                    <ul>
+                        <li>場次高的</li>
+                        <li>角色多的</li>
+                        <li>整月合併的</li>
+                        <li>關鍵字搜尋-篩選有特定角色的場次</li>
+                    </ul>
+                </div>
+                <h3>❓是否可能舉報到無辜路人</h3>
+                <div>
+                    寄信只是請求官方調查。是否違規 是交由官方去做認定。無辜路人不太可能會被判定為異常
+                </div>
+                <h3>⚠️建議每天不要寄太多封</h3>
+                <div>
+                    短時間內大量寄信。可能被判定垃圾信。建議每天寄3~5封即可
+                </div>
+            </div>
 
-        <form id="characterForm" class="character-form">
+            <div class="usage-modal-footer">
+                <button type="button" data-close-usage>關閉</button>
+            </div>
+
+        </dialog>
+       
+        <form id="characterForm" class="character-form" style="margin-top: 50px;">
             <input id="characterName" type="text" maxlength="12" placeholder="輸入你角色名,會用你第一人稱投訴" >
             <select id="characterRealm" aria-label="選擇伺服器">
                 <option value="">選擇伺服器</option>
@@ -119,6 +175,33 @@
         </section>
     </main>
     <script>
+        (function () {
+        if (document.documentElement.classList.contains("page-expired")) return;
+
+        const usageOpen = document.getElementById("usageOpen");
+        const usageModal = document.getElementById("usageModal");
+        let previousBodyOverflow;
+        usageOpen.addEventListener("click", function () {
+            previousBodyOverflow = document.body.style.overflow;
+            usageModal.showModal();
+            document.body.style.overflow = "hidden";
+        });
+        usageModal.querySelectorAll("[data-close-usage]").forEach(function (button) {
+            button.addEventListener("click", function () { usageModal.close(); });
+        });
+        usageModal.addEventListener("click", function (event) {
+            const bounds = usageModal.getBoundingClientRect();
+            if (event.target === usageModal &&
+                (event.clientX < bounds.left || event.clientX > bounds.right ||
+                 event.clientY < bounds.top || event.clientY > bounds.bottom)) {
+                usageModal.close();
+            }
+        });
+        usageModal.addEventListener("close", function () {
+            document.body.style.overflow = previousBodyOverflow;
+            usageOpen.focus();
+        });
+
         const dataUrl = "https://wow-tw-202601.github.io/wow_image/eachDayEmailSection.txt";
         const status = document.getElementById("status");
         const reports = document.getElementById("reports");
@@ -141,7 +224,7 @@
                 status.textContent = "共 " + reportEntries.length + " 筆資料，搜尋命中 " + matchedCount + " 筆。" +
                     (matchedCount ? "點選標題展開信件。" : "沒有符合的玩家資料。");
             } else {
-                status.textContent = reportEntries.length ? "共 " + reportEntries.length + " 筆資料，點選標題展開信件。" : "目前沒有資料。";
+                status.textContent = reportEntries.length ? "共 " + reportEntries.length + " 筆資料，點選標題「展開」信件。" : "目前沒有資料。";
             }
         }
         const realmCodeMap = {
@@ -612,6 +695,7 @@ https://tw-wow-pvp.wow-pvp-check-tw.workers.dev
 
         retry.addEventListener("click", loadReports);
         loadReports();
+        })();
     </script>
 </body>
 </html>
