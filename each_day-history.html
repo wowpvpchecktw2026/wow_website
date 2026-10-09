@@ -82,7 +82,7 @@
         .email > button { margin: 20px 8px 8px 0; }
         .email > .email-guidance + h2 { margin-top: 60px; }
         .copy-body-button { background: #ffca28; color: #243044; }
-        .email-guidance { color: #af5607; white-space: pre-line; line-height: 1.8; }
+        .email-guidance { font-size: 18px; color: #af5607; white-space: pre-line; line-height: 1.8; }
         .reference-links { margin-top: 40px; padding-top: 20px; border-top: 1px solid #d8dee8; }
         .reference-links p { margin: 20px 0; line-height: 1.8; overflow-wrap: anywhere; }
         .reference-links a { color: #1769d2; }
@@ -190,6 +190,21 @@
                 <a href="https://www.youtube.com/watch?v=JPqUeamHL0k" target="_blank" rel="noopener noreferrer">https://www.youtube.com/watch?v=JPqUeamHL0k</a>
             </p>
         </section>
+        <dialog id="outlookModal" class="usage-modal" aria-labelledby="outlookModalTitle">
+            <div class="usage-modal-header">
+                <h2 id="outlookModalTitle">Outlook 寄信提示</h2>
+                <button id="outlookModalClose" class="usage-modal-close" type="button" aria-label="關閉 Outlook 寄信提示">&times;</button>
+            </div>
+            <div class="usage-modal-body">
+                <p>Outlook似乎有跳轉異常檢查、更嚴格的字數上限</p>
+                <p>請先確保Outlook有登入 <a href="https://outlook.live.com/mail/" target="_blank" rel="noopener noreferrer">https://outlook.live.com/mail/</a> (若擔心是釣魚網站，請您自行google前往)</p>
+                <p>確認有登入後。再點擊下方按鈕進入Outlook寄信頁面</p>
+                <label><input id="outlookSkipPrompt" type="checkbox"> 10分鐘內不再提示此訊息</label>
+            </div>
+            <div class="usage-modal-footer">
+                <button id="outlookModalConfirm" type="button">使用Outlook寄信</button>
+            </div>
+        </dialog>
     </main>
     <script>
         (function () {
@@ -217,6 +232,64 @@
         usageModal.addEventListener("close", function () {
             document.body.style.overflow = previousBodyOverflow;
             usageOpen.focus();
+        });
+
+        const outlookModal = document.getElementById("outlookModal");
+        const outlookSkipPrompt = document.getElementById("outlookSkipPrompt");
+        const outlookSkipStorageKey = "eachDayHistory.outlookPromptSkipUntil";
+        let outlookPromptSkipUntil = 0;
+        try {
+            outlookPromptSkipUntil = Number(window.localStorage.getItem(outlookSkipStorageKey)) || 0;
+        } catch (error) {
+            // Storage may be unavailable; keep the preference in memory for this page.
+        }
+        let pendingOutlookEmail = null;
+        let outlookTrigger = null;
+        let outlookPreviousOverflow;
+
+        function showOutlookPrompt(subject, body, isMonthlyReport) {
+            if (Date.now() < outlookPromptSkipUntil) {
+                openOutlook(subject, body, isMonthlyReport);
+                return;
+            }
+            outlookSkipPrompt.checked = false;
+            pendingOutlookEmail = { subject: subject, body: body, isMonthlyReport: isMonthlyReport };
+            outlookTrigger = document.activeElement;
+            outlookPreviousOverflow = document.body.style.overflow;
+            outlookModal.showModal();
+            document.body.style.overflow = "hidden";
+        }
+
+        document.getElementById("outlookModalClose").addEventListener("click", function () {
+            outlookModal.close();
+        });
+        document.getElementById("outlookModalConfirm").addEventListener("click", function () {
+            const email = pendingOutlookEmail;
+            if (email && outlookSkipPrompt.checked) {
+                outlookPromptSkipUntil = Date.now() + 10 * 60 * 1000;
+                try {
+                    window.localStorage.setItem(outlookSkipStorageKey, String(outlookPromptSkipUntil));
+                } catch (error) {
+                    // The in-memory expiry still applies if storage is blocked.
+                }
+            }
+            outlookModal.close();
+            if (email) {
+                openOutlook(email.subject, email.body, email.isMonthlyReport);
+            }
+        });
+        outlookModal.addEventListener("click", function (event) {
+            const bounds = outlookModal.getBoundingClientRect();
+            if (event.target === outlookModal &&
+                (event.clientX < bounds.left || event.clientX > bounds.right ||
+                 event.clientY < bounds.top || event.clientY > bounds.bottom)) {
+                outlookModal.close();
+            }
+        });
+        outlookModal.addEventListener("close", function () {
+            pendingOutlookEmail = null;
+            document.body.style.overflow = outlookPreviousOverflow;
+            if (outlookTrigger && outlookTrigger.isConnected) outlookTrigger.focus();
         });
 
         const dataUrl = "https://wow-tw-202601.github.io/wow_image/eachDayEmailSection.txt";
@@ -391,6 +464,24 @@
             "Please assess the reported Solo Shuffle activity within the indicated timeframe, reviewing the listed characters’ queue records, gameplay, account access, and interactions with connected accounts."
         ];
 
+        function formatAdditionalReportingPeriods(text) {
+            const lines = text.split(/\r?\n/);
+            const periodPattern = /^(\d{4})-(\d{2}-\d{2} \d{2}:\d{2})\s*\(GMT\+8\)\s*~\s*(\d{4})-(\d{2}-\d{2} \d{2}:\d{2})\s*\(GMT\+8\)$/;
+            const periods = lines.filter(function (line) { return line.trim() !== ""; })
+                .map(function (line) { return line.trim().match(periodPattern); });
+            if (!periods.length || periods.some(function (period) { return !period; })) {
+                return text;
+            }
+            const year = periods[0][1];
+            if (periods.some(function (period) { return period[1] !== year || period[3] !== year; })) {
+                return text;
+            }
+            return lines.map(function (line) {
+                const period = line.trim().match(periodPattern);
+                return period ? period[2] + " ~ " + period[4] + " (GMT+8)" : line;
+            }).join(text.includes("\r\n") ? "\r\n" : "\n");
+        }
+
         function buildEmailBody(item) {
             const violations = [
                 "- Account sharing between multiple people",
@@ -439,7 +530,7 @@ By cross-referencing their achievements, I identified multiple characters associ
 
 ${typeof item.AdditionalReportingPeriods === "string" && item.AdditionalReportingPeriods.trim() !== "" ? `${sperateSymbol} Additional Reporting Periods:
 Similar suspicious activity was also observed at several other times. Please also review the following periods for potential recurring patterns of coordinated rating manipulation or win-trading:
-${item.AdditionalReportingPeriods}
+${formatAdditionalReportingPeriods(item.AdditionalReportingPeriods)}
 
 ` : ""}${sperateSymbol} Conclusion:
 ${conclusion}
@@ -647,7 +738,7 @@ https://tw-wow-pvp.wow-pvp-check-tw.workers.dev
                 outlookButton.type = "button";
                 outlookButton.textContent = isMonthlyReport ? "Outlook寄信 (字太多內文要手動填寫)" : "👆點擊此 開啟outlook寄信";
                 outlookButton.addEventListener("click", function () {
-                    openOutlook(subject, composeBody, isMonthlyReport);
+                    showOutlookPrompt(subject, composeBody, isMonthlyReport);
                 });
                 email.append(gmailButton, outlookButton);
                 if (isMonthlyReport) {
