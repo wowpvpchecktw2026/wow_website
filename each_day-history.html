@@ -594,6 +594,36 @@ https://tw-wow-pvp.wow-pvp-check-tw.workers.dev
             }
         }
 
+        const mailDailyCounts = Object.create(null);
+
+        function recordMailNavigation() {
+            const now = new Date();
+            const dateKey = now.getFullYear() + "-" +
+                String(now.getMonth() + 1).padStart(2, "0") + "-" +
+                String(now.getDate()).padStart(2, "0");
+            const storageKey = "eachDayHistory.mailNavigationCount." + dateKey;
+            let count = mailDailyCounts[dateKey] || 0;
+            try {
+                const storedCount = Number(window.localStorage.getItem(storageKey));
+                if (Number.isSafeInteger(storedCount) && storedCount >= 0) {
+                    count = Math.max(count, storedCount);
+                }
+            } catch (error) {
+                // Keep counting in memory when browser storage is unavailable.
+            }
+            if (count >= 10) {
+                window.alert("你今日已操作10次。請明天再繼續");
+                return false;
+            }
+            mailDailyCounts[dateKey] = count + 1;
+            try {
+                window.localStorage.setItem(storageKey, String(count + 1));
+            } catch (error) {
+                // The in-memory daily limit still applies if storage is blocked.
+            }
+            return true;
+        }
+
         function isMobileDevice() {
             if (navigator.userAgentData && navigator.userAgentData.mobile) {
                 return true;
@@ -618,6 +648,8 @@ https://tw-wow-pvp.wow-pvp-check-tw.workers.dev
                 body: body
             });
 
+            if (!recordMailNavigation()) return;
+
             window.open(
                 "https://mail.google.com/mail/?" + parameters.toString(),
                 "_blank",
@@ -639,6 +671,8 @@ https://tw-wow-pvp.wow-pvp-check-tw.workers.dev
                 body: body
             });
             const query = parameters.toString().replace(/\+/g, "%20");
+
+            if (!recordMailNavigation()) return;
 
             window.open(
                 "https://outlook.live.com/mail/0/deeplink/compose?" + query,
