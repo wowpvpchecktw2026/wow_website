@@ -52,6 +52,7 @@
         summary::-webkit-details-marker { display: none; }
         summary::before { content: ""; flex-shrink: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-left: 7px solid #243044; }
         details[open] summary::before { transform: rotate(90deg); }
+        .mail-sent-mark { flex-shrink: 0; }
         .summary-text { flex: 1; min-width: 0; }
         .high-round-chip { margin-left: auto; flex-shrink: 0; padding: 3px 8px; border-radius: 5px; background: #b42318; color: white; font-size: 15px; line-height: 1.5; white-space: nowrap; }
         .extreme-round-chip { background: #7b1fa2; }
@@ -145,6 +146,11 @@
                     信件內容會多加一段自我介紹。讓投訴信看起來像是一個玩家發出請求　（避免每封信都是匿名）。減低被當作垃圾信件的機率
                 </div>
 
+                <h3>❓大量寄信是否可能被判定為垃圾信</h3>
+                <div>
+                    每封信的標題、內文會隨機稍微變動 (雖然主體格式還是差不多)。希望這樣的方式能讓官方判定是多個投訴案例
+                </div>
+                
                 <h3>⚠️建議每天不要寄太多封</h3>
                 <div>
                     短時間內大量寄信。可能被判定垃圾信。建議每天寄3~5封即可
@@ -247,13 +253,13 @@
         let outlookTrigger = null;
         let outlookPreviousOverflow;
 
-        function showOutlookPrompt(subject, body, isMonthlyReport) {
+        function showOutlookPrompt(subject, body, isMonthlyReport, onNavigate) {
             if (Date.now() < outlookPromptSkipUntil) {
-                openOutlook(subject, body, isMonthlyReport);
+                openOutlook(subject, body, isMonthlyReport, onNavigate);
                 return;
             }
             outlookSkipPrompt.checked = false;
-            pendingOutlookEmail = { subject: subject, body: body, isMonthlyReport: isMonthlyReport };
+            pendingOutlookEmail = { subject: subject, body: body, isMonthlyReport: isMonthlyReport, onNavigate: onNavigate };
             outlookTrigger = document.activeElement;
             outlookPreviousOverflow = document.body.style.overflow;
             outlookModal.showModal();
@@ -275,7 +281,7 @@
             }
             outlookModal.close();
             if (email) {
-                openOutlook(email.subject, email.body, email.isMonthlyReport);
+                openOutlook(email.subject, email.body, email.isMonthlyReport, email.onNavigate);
             }
         });
         outlookModal.addEventListener("click", function (event) {
@@ -632,12 +638,12 @@ https://tw-wow-pvp.wow-pvp-check-tw.workers.dev
                 (/Macintosh/i.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
         }
 
-        function openGmail(subject, body, isMonthlyReport) {
+        function openGmail(subject, body, isMonthlyReport, onNavigate) {
             if (isMobileDevice()) {
                 window.alert("此功能只允許電腦版操作");
                 return;
             }
-            if (isMonthlyReport && !window.confirm("整月合併內文字數太多。內文需要手動複製貼上")) {
+            if (isMonthlyReport && !window.confirm("⚠️注意事項，整月合併內文字數太多。內文需要手動複製貼上")) {
                 return;
             }
             const parameters = new URLSearchParams({
@@ -655,14 +661,15 @@ https://tw-wow-pvp.wow-pvp-check-tw.workers.dev
                 "_blank",
                 "noopener,noreferrer"
             );
+            if (onNavigate) onNavigate();
         }
 
-        function openOutlook(subject, body, isMonthlyReport) {
+        function openOutlook(subject, body, isMonthlyReport, onNavigate) {
             if (isMobileDevice()) {
                 window.alert("此功能只允許電腦版操作");
                 return;
             }
-            if (isMonthlyReport && !window.confirm("整月合併內文字數太多。內文需要手動複製貼上")) {
+            if (isMonthlyReport && !window.confirm("⚠️注意事項，整月合併內文字數太多。內文需要手動複製貼上")) {
                 return;
             }
             const parameters = new URLSearchParams({
@@ -679,7 +686,23 @@ https://tw-wow-pvp.wow-pvp-check-tw.workers.dev
                 "_blank",
                 "noopener,noreferrer"
             );
+            if (onNavigate) onNavigate();
         }
+
+        function getMailRecordCookieName(item) {
+            // Use stable report fields, rather than the randomized email subject or list position.
+            const identity = JSON.stringify([Number(item.reportType) || 0, item.ReportingPeriod, item.emailSuffix, item.ReportPlayers]);
+            let firstHash = 2166136261;
+            let secondHash = 5381;
+            for (let index = 0; index < identity.length; index++) {
+                const code = identity.charCodeAt(index);
+                firstHash = Math.imul(firstHash ^ code, 16777619);
+                secondHash = Math.imul(secondHash, 33) ^ code;
+            }
+            return "eachDayMailOpened_" + (firstHash >>> 0).toString(16).padStart(8, "0") +
+                (secondHash >>> 0).toString(16).padStart(8, "0");
+        }
+
 
         function renderReports(items) {
             reportEntries.length = 0;
@@ -687,6 +710,18 @@ https://tw-wow-pvp.wow-pvp-check-tw.workers.dev
             items.forEach(function (item, index) {
                 const accordion = document.createElement("details");
                 const summary = document.createElement("summary");
+                const mailRecordCookieName = getMailRecordCookieName(item);
+                const mailSentMark = document.createElement("span");
+                mailSentMark.className = "mail-sent-mark";
+                mailSentMark.textContent = "✅已寄信";
+                mailSentMark.title = "曾開啟此項目的寄信介面";
+                mailSentMark.setAttribute("aria-label", "曾開啟此項目的寄信介面");
+                mailSentMark.hidden = readCookie(mailRecordCookieName) !== "1";
+                summary.append(mailSentMark);
+                function markMailOpened() {
+                    saveCookie(mailRecordCookieName, "1");
+                    mailSentMark.hidden = false;
+                }
                 const summaryText = document.createElement("span");
                 summaryText.className = "summary-text";
                 summaryText.textContent = (Number(item.reportType) === 1999 ? "整月合併: " : "單排異常紀錄: ") + item.emailSuffix.replace(/[()]/g, "").replace("GMT+8" , "");
@@ -766,13 +801,13 @@ https://tw-wow-pvp.wow-pvp-check-tw.workers.dev
                 gmailButton.type = "button";
                 gmailButton.textContent = isMonthlyReport ? "Gmail寄信 (字太多內文要手動填寫)" : "👆點擊此 開啟Gmail寄信";
                 gmailButton.addEventListener("click", function () {
-                    openGmail(subject, composeBody, isMonthlyReport);
+                    openGmail(subject, composeBody, isMonthlyReport, markMailOpened);
                 });
                 const outlookButton = document.createElement("button");
                 outlookButton.type = "button";
                 outlookButton.textContent = isMonthlyReport ? "Outlook寄信 (字太多內文要手動填寫)" : "👆點擊此 開啟outlook寄信";
                 outlookButton.addEventListener("click", function () {
-                    showOutlookPrompt(subject, composeBody, isMonthlyReport);
+                    showOutlookPrompt(subject, composeBody, isMonthlyReport, markMailOpened);
                 });
                 email.append(gmailButton, outlookButton);
                 if (isMonthlyReport) {
