@@ -7,12 +7,76 @@
     <script>
         const pageAccessParameters = [];
         (function () {
+            function md5(value) {
+                const bytes = new TextEncoder().encode(value);
+                const padded = new Uint8Array(Math.ceil((bytes.length + 9) / 64) * 64);
+                padded.set(bytes);
+                padded[bytes.length] = 128;
+                const view = new DataView(padded.buffer);
+                view.setUint32(padded.length - 8, (bytes.length * 8) >>> 0, true);
+                view.setUint32(padded.length - 4, Math.floor(bytes.length / 536870912), true);
+                const shifts = [7, 12, 17, 22, 5, 9, 14, 20, 4, 11, 16, 23, 6, 10, 15, 21];
+                const constants = Array.from({ length: 64 }, function (_, index) {
+                    return Math.floor(Math.abs(Math.sin(index + 1)) * 4294967296) >>> 0;
+                });
+                const state = [0x67452301, 0xefcdab89, 0x98badcfe, 0x10325476];
+                for (let offset = 0; offset < padded.length; offset += 64) {
+                    let a = state[0];
+                    let b = state[1];
+                    let c = state[2];
+                    let d = state[3];
+                    for (let index = 0; index < 64; index++) {
+                        let mixed;
+                        let wordIndex;
+                        if (index < 16) {
+                            mixed = (b & c) | (~b & d);
+                            wordIndex = index;
+                        } else if (index < 32) {
+                            mixed = (d & b) | (~d & c);
+                            wordIndex = (5 * index + 1) % 16;
+                        } else if (index < 48) {
+                            mixed = b ^ c ^ d;
+                            wordIndex = (3 * index + 5) % 16;
+                        } else {
+                            mixed = c ^ (b | ~d);
+                            wordIndex = (7 * index) % 16;
+                        }
+                        const sum = (a + mixed + constants[index] + view.getUint32(offset + wordIndex * 4, true)) | 0;
+                        const shift = shifts[Math.floor(index / 16) * 4 + index % 4];
+                        const next = (b + ((sum << shift) | (sum >>> (32 - shift)))) | 0;
+                        a = d;
+                        d = c;
+                        c = b;
+                        b = next;
+                    }
+                    state[0] = (state[0] + a) | 0;
+                    state[1] = (state[1] + b) | 0;
+                    state[2] = (state[2] + c) | 0;
+                    state[3] = (state[3] + d) | 0;
+                }
+                return state.map(function (word) {
+                    let hex = "";
+                    for (let index = 0; index < 4; index++) {
+                        hex += ((word >>> (index * 8)) & 255).toString(16).padStart(2, "0");
+                    }
+                    return hex;
+                }).join("");
+            }
+
             const url = new URL(window.location.href);
-            if (url.protocol === "file:") return;
+            //if (url.protocol === "file:") return;
             if (url.searchParams.has("qqq")) {
-                pageAccessParameters.push(...url.searchParams.getAll("qqq"));
+                const values = url.searchParams.getAll("qqq");
+                const isValid = values.every(function (value) {
+                    return md5(value) === "59f826c6909e28e8608b3cdf3db82fb2";
+                });
                 url.searchParams.delete("qqq");
                 window.history.replaceState(window.history.state, "", url.href);
+                if (isValid) {
+                    pageAccessParameters.push(...values);
+                } else {
+                    document.documentElement.classList.add("page-expired");
+                }
             } else {
                 document.documentElement.classList.add("page-expired");
             }
@@ -94,7 +158,7 @@
 <body>
     <div id="pageExpired" role="alert">       
         <div>
-            你的頁面已過期，請使用原連結進入此頁面
+            你的網址已失效，請使用原連結進入此頁面 (或至DC使用原始連結)
         </div> 
         <div>
             Page Expired , please retry original link
