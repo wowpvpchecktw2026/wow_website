@@ -64,7 +64,7 @@
             }
 
             const url = new URL(window.location.href);
-            //if (url.protocol === "file:") return;
+            if (url.protocol === "file:") return;
             if (url.searchParams.has("qqq")) {
                 const values = url.searchParams.getAll("qqq");
                 const isValid = values.every(function (value) {
@@ -130,6 +130,7 @@
         details[open] summary { border-bottom: 1px solid #d8dee8; }
         .email { padding: 20px; }
         .report-image { display: block; max-width: 100%; height: auto; margin-top: 24px; }
+        .report-image.is-loading { width: 100%; height: 350px; background: #edf0f5; object-fit: contain; }
         h2 { margin: 24px 0 10px; font-size: 18px; }
         h2:first-child { margin-top: 0; }
         pre { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font: 15px/1.8 Consolas, "Microsoft JhengHei", sans-serif; }
@@ -158,7 +159,7 @@
 <body>
     <div id="pageExpired" role="alert">       
         <div>
-            你的網址已失效，請使用原連結進入此頁面 (或至DC使用原始連結)
+            你的頁面已過期，請使用原連結進入此頁面
         </div> 
         <div>
             Page Expired , please retry original link
@@ -842,7 +843,10 @@ https://tw-wow-pvp.wow-pvp-check-tw.workers.dev
 
                     email.append(imageHint);
                     const image = document.createElement("img");
-                    image.className = "report-image";
+                    image.className = "report-image is-loading";
+                    image.addEventListener("load", function () {
+                        image.classList.remove("is-loading");
+                    });
                     image.alt = "Check-PvP 截圖 " + item.emailSuffix;
                     accordion.addEventListener("toggle", function () {
                         if (accordion.open && !image.hasAttribute("src")) {
