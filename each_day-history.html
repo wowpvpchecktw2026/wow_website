@@ -65,19 +65,44 @@
 
             const url = new URL(window.location.href);
             if (url.protocol === "file:") return;
+            const accessCookieName = "eachDayHistoryPageAccess";
+            const accessDuration = 30 * 60 * 1000;
+            const expectedHash = "59f826c6909e28e8608b3cdf3db82fb2";
+
+            function hasValidAccessCookie() {
+                const prefix = accessCookieName + "=";
+                const cookie = document.cookie.split(";").map(function (value) {
+                    return value.trim();
+                }).find(function (value) {
+                    return value.startsWith(prefix);
+                });
+                if (!cookie) return false;
+                try {
+                    const access = JSON.parse(decodeURIComponent(cookie.slice(prefix.length)));
+                    return access !== null && typeof access.qqq === "string" &&
+                        Number.isSafeInteger(access.expiresAt) && Date.now() < access.expiresAt &&
+                        md5(access.qqq) === expectedHash;
+                } catch (error) {
+                    return false;
+                }
+            }
+
             if (url.searchParams.has("qqq")) {
                 const values = url.searchParams.getAll("qqq");
                 const isValid = values.every(function (value) {
-                    return md5(value) === "59f826c6909e28e8608b3cdf3db82fb2";
+                    return md5(value) === expectedHash;
                 });
                 url.searchParams.delete("qqq");
                 window.history.replaceState(window.history.state, "", url.href);
                 if (isValid) {
                     pageAccessParameters.push(...values);
+                    const access = { qqq: values[0], expiresAt: Date.now() + accessDuration };
+                    document.cookie = accessCookieName + "=" + encodeURIComponent(JSON.stringify(access)) +
+                        "; Max-Age=1800; Path=/; SameSite=Lax" + (url.protocol === "https:" ? "; Secure" : "");
                 } else {
                     document.documentElement.classList.add("page-expired");
                 }
-            } else {
+            } else if (!hasValidAccessCookie()) {
                 document.documentElement.classList.add("page-expired");
             }
         })();
