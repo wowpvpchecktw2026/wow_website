@@ -304,13 +304,13 @@
             const titles = [
                 '[TW region] solo shuffle griefing and intentional throwing',
                 '[TW region / Solo shuffle] report of suspected intentional throwing in solo',
-                '[TW region / Solo shuffle] suspected griefing and match manipulation',
+                '[TW / Combatlog] suspected griefing and match manipulation',
                 '[Solo / TW region] request to investigate disruptive behavior in solo',
-                '[TW region solo shuffle] report: suspected deliberate losses and griefing',
+                '[TW region & solo shuffle] report: suspected deliberate losses and griefing',
                 '[TW region | Solo] request for review of suspected solo shuffle griefing',
                 '[TW region] suspicious player conduct and throwing by combatlog',
                 '[Solo shuffle | TW region] integrity concern: suspected intentional losses',
-                '[TW region & Solo shuffle] please review possible targeted griefing',
+                '[TW region & Solo shuffle] please review possible targeted griefing (combatlog)',
                 '[TW region] combat log report of solo shuffle griefing and throwing'
             ];
             return titles[Math.floor(Math.random() * titles.length)] + subjectDate;
@@ -332,7 +332,17 @@
                 {
                     introduction: 'Please investigate suspicious match behavior involving ',
                     description: 'I suspect these players are intentionally throwing matches by withholding major cooldowns and defensive abilities when they are most needed. Previous penalties and repeated reports from multiple players through the reporting system have not stopped their continued malicious disruption of gameplay.',
-                    targeted: name => 'I am also concerned that these players are deliberately influencing match outcomes to cause additional losses for ' + name + '. This appears to be targeted griefing aimed at ruining this player\'s overall experience.'
+                    targeted: name => 'I have also noticed that these players are deliberately influencing match outcomes to cause additional losses for ' + name + '. This appears to be targeted griefing aimed at ruining this player\'s overall experience.'
+                },
+                {
+                    introduction: 'I am requesting a review of possible match sabotage involving ',
+                    description: 'I am concerned that these players may be intentionally throwing matches by withholding major cooldowns and defensive abilities at critical moments. Please review the combat records to determine whether these decisions reflect deliberate disruption rather than ordinary mistakes, and check any relevant prior reports or penalties.',
+                    targeted: name => 'I’ve observed a clear pattern of malicious intent where these individuals deliberately sabotage games to target $NAME$ and inflate their loss record. This is a severe form of harassment and targeted toxicity aimed entirely at ruining '+ name +'\'s enjoyment of the game.'
+                },
+                {
+                    introduction: 'Please review this report of suspected disruptive conduct by ',
+                    description: 'The behavior I am reporting concerns possible intentional losses, including apparent failures to use important cooldowns or defensives during decisive moments. I ask that you examine the available match evidence and any relevant reporting history to determine whether misconduct occurred.',
+                    targeted: name => 'These players are intentionally losing games to inflict extra losses on ' + name +'. This is clearly targeted griefing intended to ruin ' + name +'’s overall play experience..'
                 }
             ];
             const template = templates[Math.floor(Math.random() * templates.length)];
