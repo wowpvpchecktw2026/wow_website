@@ -557,7 +557,7 @@
             "The reported activity raises concerns about possible coordination among players to manipulate Solo Shuffle ratings, including suspected rating farming, win-trading during the specified reporting period.",
             "Although screenshots alone are not conclusive, these accounts are widely known in the TW PvP community for suspected boosting. They repeatedly gain rating during specific time windows, seemingly in coordination with other accounts. The reported activity raises concerns about possible coordination among players to manipulate Solo Shuffle ratings, including suspected rating farming, win-trading. ",
             "Some players appear to be coordinating their Solo Shuffle activity to gain unfair rating advantages, with possible involvement in rating manipulation, win-trading during the specified reporting period",
-            "I request a review of suspected coordinated abuse of Solo Shuffle mechanics, particularly possible rating manipulation, rating manipulation, win-trading during the reporting period."
+            "I request a review of suspected coordinated abuse of Solo Shuffle mechanics, particularly possible rating manipulation, win-trading during the reporting period."
         ];
 
         const conclusionTemplates = [
@@ -586,6 +586,17 @@
             }).join(text.includes("\r\n") ? "\r\n" : "\n");
         }
 
+        const additionalDescriptionTemplates = [
+            "Several players have previously encountered these characters and observed the following behaviors: they attempt to output some damage or healing stats to make it harder for the system to detect anomalies, and may even allow other players to get 1 or 2 wins to avoid extreme win-loss ratios. However, their actual purpose remains rating-farming. We kindly request conduct a thorough investigation into these accounts.",
+            "Some players have encountered these characters and noticed a few patterns. They try to generate some damage or healing numbers so the system can't easily detect abnormal behavior. They might even let other players win 1 or 2 matches to keep their win-loss record from looking too extreme, but their real goal is still rating-farming. Please investigate these accounts thoroughly.",
+            "",
+            "Players who have encountered these characters report that they generate some damage or healing numbers, apparently to make suspicious activity less obvious. They may also allow other players to win 1 or 2 matches so their win-loss record looks less extreme, while their main aim appears to remain rating-farming. Please conduct a thorough review of these accounts.",
+            "Some players have noticed that these characters produce damage or healing stats that may help conceal abnormal match behavior. They also appear to give other players 1 or 2 wins to avoid an unusually one-sided win-loss record, but their activity still suggests score-farming. Please investigate these accounts and the relevant match records thoroughly.",
+            "Several players describe a similar pattern involving these characters: they contribute some damage or healing and may let other players win 1 or 2 matches to make the results seem less suspicious. Despite these efforts to avoid extreme win-loss ratios, the underlying activity appears to be rating-farming. We ask that these accounts receive a thorough investigation.",
+            "Some players notice that these characters generate damage or healing stats and allow 1 or 2 wins to disguise suspected rating-farming. Please investigate these accounts.",
+            "These characters may use damage or healing numbers and occasional wins for others to make coordinated rating-farming less obvious. Please review their match records."
+        ];
+
         function buildEmailBody(item) {
             const violations = [
                 "- Account sharing between multiple people",
@@ -602,6 +613,19 @@
             const conclusion = conclusionTemplates[Math.floor(Math.random() * conclusionTemplates.length)];
             const reportingReason = reportingReasonTemplates[Math.floor(Math.random() * reportingReasonTemplates.length)];
             const sperateSymbol = sperateSymbols[Math.floor(Math.random() * sperateSymbols.length)];
+            const dateMatch = item.emailSuffix.match(/\b(\d{4})-(\d{1,2})-(\d{1,2})\b/);
+            let additionalDescription = "";
+            if (dateMatch) {
+                const year = Number(dateMatch[1]);
+                const month = Number(dateMatch[2]);
+                const day = Number(dateMatch[3]);
+                const reportDate = new Date(Date.UTC(year, month - 1, day));
+                if (reportDate.getUTCFullYear() === year && reportDate.getUTCMonth() === month - 1 &&
+                    reportDate.getUTCDate() === day && reportDate.getTime() >= Date.UTC(2026, 9, 1) &&
+                    reportDate.getTime() < Date.UTC(2026, 10, 2)) {
+                    additionalDescription = "\n\n" + additionalDescriptionTemplates[Math.floor(Math.random() * additionalDescriptionTemplates.length)];
+                }
+            }
             return `${sperateSymbol} Regions:
 TW region (Taiwan region)
 
@@ -625,7 +649,7 @@ I am a player from Taiwan region.${savedCharacterName ? "\nMy character is " + s
 I am submitting this report to request an investigation into possible coordinated rating manipulation and gameplay sabotage in Solo Shuffle.
 These characters have suspicious match record, rating farming during the specified reporting period.
 I respectfully request that Blizzard examine the relevant internal records to determine whether any of the following violations occurred:
-${violations.join("\n")}
+${violations.join("\n")}${additionalDescription}
 
 
 ${item.RelateAccountFormat.includes("#Account 1") ? `${sperateSymbol} Most of the characters associated with specific Battle accounts.
