@@ -619,11 +619,16 @@
                 const year = Number(dateMatch[1]);
                 const month = Number(dateMatch[2]);
                 const day = Number(dateMatch[3]);
+                const targetMonth_begin = 10;
+                const targetMonth_end = 11;
                 const reportDate = new Date(Date.UTC(year, month - 1, day));
                 if (reportDate.getUTCFullYear() === year && reportDate.getUTCMonth() === month - 1 &&
-                    reportDate.getUTCDate() === day && reportDate.getTime() >= Date.UTC(2026, 9, 1) &&
-                    reportDate.getTime() < Date.UTC(2026, 10, 2)) {
-                    additionalDescription = "\n\n" + additionalDescriptionTemplates[Math.floor(Math.random() * additionalDescriptionTemplates.length)];
+                    reportDate.getUTCDate() === day && reportDate.getTime() >= Date.UTC(2026, targetMonth_begin - 1, 1) &&
+                    reportDate.getTime() < Date.UTC(2026, targetMonth_end - 1, 2)) {
+                    const selectedDescription = additionalDescriptionTemplates[Math.floor(Math.random() * additionalDescriptionTemplates.length)];
+                    if (selectedDescription.trim() !== "") {
+                        additionalDescription = "\n\n" + sperateSymbol + " Behavioral Pattern Analysis:\n" + selectedDescription;
+                    }
                 }
             }
             return `${sperateSymbol} Regions:
@@ -650,7 +655,6 @@ I am submitting this report to request an investigation into possible coordinate
 These characters have suspicious match record, rating farming during the specified reporting period.
 I respectfully request that Blizzard examine the relevant internal records to determine whether any of the following violations occurred:
 ${violations.join("\n")}${additionalDescription}
-
 
 ${item.RelateAccountFormat.includes("#Account 1") ? `${sperateSymbol} Most of the characters associated with specific Battle accounts.
 By cross-referencing their achievements, I identified multiple characters associated with the same Battle.net accounts.\n${item.RelateAccountFormat}
