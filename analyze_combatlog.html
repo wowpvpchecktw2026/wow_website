@@ -308,10 +308,10 @@
                 '[Solo / TW region] request to investigate disruptive behavior in solo',
                 '[TW region & solo shuffle] report: suspected deliberate losses and griefing',
                 '[TW region | Solo] request for review of suspected solo shuffle griefing',
-                '[TW region] suspicious player conduct and throwing by combatlog',
+                '[TW region] suspicious player conduct and throwing - combatlog record',
                 '[Solo shuffle | TW region] integrity concern: suspected intentional losses',
                 '[TW region & Solo shuffle] please review possible targeted griefing (combatlog)',
-                '[TW region] combat log report of solo shuffle griefing and throwing'
+                '[TW region] Combat log report of solo shuffle griefing and throwing'
             ];
             return titles[Math.floor(Math.random() * titles.length)] + subjectDate;
         }
@@ -345,10 +345,20 @@
                     targeted: name => 'These players are intentionally losing games to inflict extra losses on ' + name +'. This is clearly targeted griefing intended to ruin ' + name +'’s overall play experience..'
                 }
             ];
+
+            const extraContent = [ 
+                "※ Behavioral Observation:\nI have identified several distinct patterns among these malicious players. They intentionally produce partial damage and healing to avoid triggering automated detection for obvious throwing. However, their actual intent remains sabotaging specific players by forcing excessive losses on them, or artificially inflating the ratings of their own alt characters to occupy seasonal title cutoffs. I strongly urge the team to conduct a thorough audit of combat and match logs across all associated characters under their accounts.\n\n" , 
+                "※ Behavioral Pattern Observation:\nI have observed a clear pattern among certain malicious actors in the competitive ladder. To avoid automated griefing flags, they generate modest damage and healing metrics. In reality, they are actively manipulating match outcomes—either by target-throwing games to tank specific players' ratings or by inflating multiple alt characters into the top brackets to hoard title cutoffs. I request that the security team perform a cross-character log analysis and account-level matchmaking review to investigate this covert sabotage.\n\n" , 
+                ""];
+
             const template = templates[Math.floor(Math.random() * templates.length)];
             let description = '※ Description\n' + template.introduction + englishNames + '.\n\n' + template.description;
             for (const player of lossPlayers) {
                 description += '\n\n' + template.targeted(formatReportPlayer(player.name));
+            }
+            const extra = extraContent[Math.floor(Math.random() * extraContent.length)];
+            if (typeof extra === 'string' && extra.trim()) {
+                description += '\n\n' + extra;
             }
             return description;
         }
