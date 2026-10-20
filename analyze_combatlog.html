@@ -453,13 +453,15 @@
                 const query = parameters.toString().replace(/\+/g, '%20');
                 window.open('https://outlook.live.com/mail/0/deeplink/compose?' + query, '_blank', 'noopener,noreferrer');
             }
-            const gmailButton = node('button', '👆點擊此 開啟Gmail並自動填入文字', 'gmail-button');
-            gmailButton.type = 'button';
-            gmailButton.addEventListener('click', openGmail);
-            const outlookButton = node('button', '👆點擊此 開啟Outlook並自動填入文字', 'outlook-button');
-            outlookButton.type = 'button';
-            outlookButton.addEventListener('click', openOutlook);
-            timeline.prepend(gmailButton, outlookButton);
+            if (specialPlayers.matched.length) {
+                const gmailButton = node('button', '👆點擊此 開啟Gmail並自動填入文字', 'gmail-button');
+                gmailButton.type = 'button';
+                gmailButton.addEventListener('click', openGmail);
+                const outlookButton = node('button', '👆點擊此 開啟Outlook並自動填入文字', 'outlook-button');
+                outlookButton.type = 'button';
+                outlookButton.addEventListener('click', openOutlook);
+                timeline.prepend(gmailButton, outlookButton);
+            }
             for (const paragraph of paragraphs) {
                 const text = node('p', paragraph); text.style.whiteSpace = 'pre-line'; timeline.append(text);
             }
