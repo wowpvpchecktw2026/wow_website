@@ -632,6 +632,19 @@
             const reportingReason = reportingReasonTemplates[Math.floor(Math.random() * reportingReasonTemplates.length)];
             const sperateSymbol = sperateSymbols[Math.floor(Math.random() * sperateSymbols.length)];
             const dateMatch = item.emailSuffix.match(/\b(\d{4})-(\d{1,2})-(\d{1,2})\b/);
+            let extraDescriptiionHour0 = "";
+            const beginTimeMatch = typeof item.BeginTime === "string" ? item.BeginTime.match(/(?:^|[\sT])([01]?\d|2[0-3]):[0-5]\d\b/) : null;
+            if (beginTimeMatch && Number(beginTimeMatch[1]) >= 1 && Number(beginTimeMatch[1]) <= 5 && item.PlayerCount <= 10) {
+                const extraDescriptionTemplates = 
+                [
+                    "We have noticed that the characters associated with these accounts frequently manipulate the Arena queue during the early morning hours (GMT+8) and coordinate to enter the same instance in order to farm rating .", 
+                    "We have observed that the characters linked to these accounts repeatedly manipulate the Arena matchmaking queue during the early morning hours (GMT+8), coordinating their entries to match into the same instance and artificially increase their rating.", 
+                    "The characters connected to these accounts appear to be coordinating their Arena queue activity during off-peak hours (GMT+8), repeatedly entering the same instance in a manner consistent with rating farming",
+                    "These accounts have repeatedly exhibited suspicious Arena queue behavior during the evening and early morning hours (GMT+8). The characters seem to coordinate their queue timing to get into the same matches, potentially exploiting the matchmaking system to boost their ratings.",
+                    "We have observed that characters associated with these accounts frequently manipulate the Arena queue during the evening and late-night hours (GMT+8). They appear to coordinate with one another to enter the same matches and farm rating unfairly."
+                ];
+                extraDescriptiionHour0 = "\n\n" + extraDescriptionTemplates[Math.floor(Math.random() * extraDescriptionTemplates.length)];
+            }
             let additionalDescription = "";
             if (dateMatch) {
                 const year = Number(dateMatch[1]);
@@ -672,7 +685,7 @@ I am a player from Taiwan region.${savedCharacterName ? "\nMy character is " + s
 I am submitting this report to request an investigation into possible coordinated rating manipulation and gameplay sabotage in Solo Shuffle.
 These characters have suspicious match record, rating farming during the specified reporting period.
 I respectfully request that Blizzard examine the relevant internal records to determine whether any of the following violations occurred:
-${violations.join("\n")}${additionalDescription}
+${violations.join("\n")}${additionalDescription}${extraDescriptiionHour0}
 
 ${item.RelateAccountFormat.includes("#Account 1") ? `${sperateSymbol} Most of the characters associated with specific Battle accounts.
 By cross-referencing their achievements, I identified multiple characters associated with the same Battle.net accounts.\n${item.RelateAccountFormat}
